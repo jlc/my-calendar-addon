@@ -129,6 +129,94 @@ const fmwInit = (onReady = () => {}) => {
 };
 
 // ── Core communication functions ────────────────────────────────────────────
+
+// In filemakerInterface.js (global scope or top-level)
+
+// Pending promises map – use FetchId as key
+const pendingCallbacks = new Map();
+
+// Global callback handler – make it very verbose for now
+window.Fmw_Callback = function (jsonString) {
+  console.log("[Fmw_Callback] Received raw string from FM:", jsonString);
+
+  try {
+    const data = JSON.parse(jsonString);
+    console.log("[Fmw_Callback] Parsed data:", data);
+
+    const fetchId = data?.FetchId || data?.fetchId || data?.Meta?.FetchId;
+    if (!fetchId) {
+      console.error("[Fmw_Callback] No FetchId found in payload");
+      return;
+    }
+
+    console.log("[Fmw_Callback] Looking for promise with FetchId:", fetchId);
+    console.log("Current pending keys:", Array.from(pendingCallbacks.keys()));
+
+    if (pendingCallbacks.has(fetchId)) {
+      const { resolve, reject } = pendingCallbacks.get(fetchId);
+      console.log("[Fmw_Callback] Resolving promise for FetchId:", fetchId);
+
+      if (data.error || data.code !== "0") {
+        reject(new Error(data.error || "FM error: " + data.message));
+      } else {
+        resolve(data); // or data.response if you need to unwrap
+      }
+      pendingCallbacks.delete(fetchId);
+    } else {
+      console.warn(
+        "[Fmw_Callback] No pending promise found for FetchId:",
+        fetchId,
+      );
+    }
+  } catch (err) {
+    console.error("[Fmw_Callback] Parse or handling error:", err);
+  }
+};
+
+// Updated sendToFileMaker – ensure Meta is set correctly
+const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
+  const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random()
+
+  const fullParam = {
+    ...data,
+    Meta: {
+      AddonUUID:
+        window.__initialProps__?.AddonUUID ||
+        "F84BA49F-913B-4818-9C3D-5CDAEC10CA6D",
+      FetchId: fetchId,
+      Callback: "Fmw_Callback",
+      ...metaOverrides,
+    },
+  };
+
+  const paramJson = JSON.stringify(fullParam);
+  console.log(
+    `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
+    fetchId,
+    "Param:",
+    fullParam,
+  );
+
+  return new Promise((resolve, reject) => {
+    pendingCallbacks.set(fetchId, { resolve, reject });
+
+    if (window.FileMaker?.PerformScript) {
+      window.FileMaker.PerformScript(scriptName, paramJson);
+    } else {
+      reject(new Error("FileMaker.PerformScript not available"));
+    }
+
+    // Timeout safeguard
+    setTimeout(() => {
+      if (pendingCallbacks.has(fetchId)) {
+        pendingCallbacks.delete(fetchId);
+        reject(new Error(`Timeout waiting for callback from ${scriptName}`));
+      }
+    }, 30000); // 30s – adjust if your finds are slow
+  });
+};
+
+/*
 const generateFetchId = () => uuidv4();
 
 const sendToFileMaker = (
@@ -204,6 +292,7 @@ window.Fmw_Callback = (responseJson, fetchId) => {
     delete callbackRegistry[fetchId];
   }
 };
+*/
 
 // ── High-level API ──────────────────────────────────────────────────────────
 const sendEvent = (eventType, payload = {}) => {
@@ -215,6 +304,7 @@ const sendEvent = (eventType, payload = {}) => {
   );
 };
 
+/*
 const fetchRecords = async (findRequest) => {
   try {
     const result = await sendToFileMaker("FCCalendarFind", findRequest);
@@ -222,6 +312,21 @@ const fetchRecords = async (findRequest) => {
   } catch (err) {
     console.error("Find failed:", err);
     return [];
+  }
+};
+*/
+
+const fetchRecords = async (findRequest) => {
+  try {
+    const response = await sendToFileMaker("FCCalendarFind", findRequest);
+    console.log("[fetchRecords] Full callback response:", response);
+
+    // Adjust unwrapping based on what FM sends
+    // From your $result: it's {response: {dataInfo, data: [...]}, messages: [...]}
+    return response?.response || response || { data: [] };
+  } catch (err) {
+    console.error("[fetchRecords] Failed:", err);
+    return { data: [] };
   }
 };
 
@@ -244,8 +349,14 @@ const fetchEventsInRange = async (startStr, endStr) => {
   const startFormatted = formatUSDate(start); // e.g. "12/21/2025"
   const endFormatted = formatUSDate(end); // e.g. "02/13/2026"
 
-  const startField = resolveFieldName("EventStartDateField");
-  const endField = resolveFieldName("EventEndDateField");
+  //const startField = resolveFieldName("EventStartDateField");
+  //const endField = resolveFieldName("EventEndDateField");
+
+  // Resolve the REAL field names from ConfigStore
+  const startField = resolveFieldName("EventStartDateField") || "StartDate"; // fallback
+  const endField = resolveFieldName("EventEndDateField") || "EndDate";
+  const detailLayout =
+    resolveFieldName("EventDetailLayout") || "Visit Event Display";
 
   const queryConditions = {
     [startField]: `>=${startFormatted}`,
@@ -257,27 +368,22 @@ const fetchEventsInRange = async (startStr, endStr) => {
 
   const findRequest = {
     //layouts: resolveFieldName("EventDetailLayout") || "Visits", // adjust fallback
-    layouts: "Visit Event Display", // hardcode for now or use config
+    layouts: detailLayout,
     query: [queryConditions],
     limit: 3000,
   };
 
   console.log(
-    "[fetchEventsInRange] US format find request:",
+    "[fetchEventsInRange] Correct payload:",
     JSON.stringify(findRequest, null, 2),
   );
 
   try {
-    const rawResult = await fetchRecords(findRequest);
-    console.log("[fetchEventsInRange] Raw result:", rawResult);
-
-    // Adjust based on your wrapper — aim for array of records
-    const records = rawResult?.response?.data || rawResult?.data || [];
-    console.log(`[fetchEventsInRange] ${records.length} raw records received`);
-
-    return records;
+    const result = await fetchRecords(findRequest);
+    console.log("[fetchEventsInRange] Success result:", result);
+    return result?.data || result?.response?.data || [];
   } catch (err) {
-    console.error(err);
+    console.error("[fetchEventsInRange] Error:", err);
     return [];
   }
 };
