@@ -216,84 +216,6 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   });
 };
 
-/*
-const generateFetchId = () => uuidv4();
-
-const sendToFileMaker = (
-  scriptName,
-  data = {},
-  metaOverrides = {},
-  withCallback = true,
-) => {
-  if (!isInFileMaker()) {
-    console.warn(
-      `[FM] Not in FileMaker context - call to ${scriptName} skipped`,
-    );
-    return Promise.resolve(null);
-  }
-
-  const fetchId = generateFetchId();
-
-  const meta = {
-    Config: config,
-    AddonUUID: addonUUID,
-    ...(withCallback
-      ? { FetchId: fetchId, Callback: CALLBACK_FUNCTION_NAME }
-      : {}),
-    ...metaOverrides,
-  };
-
-  const payload = {
-    Data: data,
-    Meta: meta,
-  };
-
-  const jsonPayload = JSON.stringify(payload);
-
-  if (withCallback) {
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        delete callbackRegistry[fetchId];
-        reject(new Error(`Timeout after ${DEFAULT_TIMEOUT_MS}ms`));
-      }, DEFAULT_TIMEOUT_MS);
-
-      callbackRegistry[fetchId] = {
-        resolve,
-        reject,
-        timeoutId,
-        status: "pending",
-      };
-
-      window.FileMaker.PerformScript(scriptName, jsonPayload);
-    });
-  } else {
-    window.FileMaker.PerformScript(scriptName, jsonPayload);
-    return Promise.resolve(null);
-  }
-};
-
-// ── Callback handler ────────────────────────────────────────────────────────
-window.Fmw_Callback = (responseJson, fetchId) => {
-  const entry = callbackRegistry[fetchId];
-
-  if (!entry || entry.status !== "pending") {
-    console.warn(`Late or unknown callback for fetchId: ${fetchId}`);
-    return;
-  }
-
-  try {
-    const result = JSON.parse(responseJson);
-    entry.resolve(result);
-  } catch (err) {
-    console.error("Callback parsing error:", err);
-    entry.reject(err);
-  } finally {
-    clearTimeout(entry.timeoutId);
-    delete callbackRegistry[fetchId];
-  }
-};
-*/
-
 // ── High-level API ──────────────────────────────────────────────────────────
 const sendEvent = (eventType, payload = {}) => {
   return sendToFileMaker(
@@ -303,18 +225,6 @@ const sendEvent = (eventType, payload = {}) => {
     false,
   );
 };
-
-/*
-const fetchRecords = async (findRequest) => {
-  try {
-    const result = await sendToFileMaker("FCCalendarFind", findRequest);
-    return result?.data || [];
-  } catch (err) {
-    console.error("Find failed:", err);
-    return [];
-  }
-};
-*/
 
 const fetchRecords = async (findRequest) => {
   try {
@@ -331,14 +241,16 @@ const fetchRecords = async (findRequest) => {
 };
 
 const fetchEventsInRange = async (startStr, endStr) => {
-  const start = new Date(startStr);
-  const end = new Date(endStr);
+  const startDate = new Date(startStr);
+  const endDate = new Date(endStr);
 
-  // ±2 day buffer
-  start.setDate(start.getDate() - 2);
-  end.setDate(end.getDate() + 2);
+  // Buffer ±2 days (original addon style)
+  const bufferStart = new Date(startDate);
+  bufferStart.setDate(bufferStart.getDate() - 2);
+  const bufferEnd = new Date(endDate);
+  bufferEnd.setDate(bufferEnd.getDate() + 2);
 
-  // US MM/DD/YYYY format – test this first to bypass validation quirk
+  // Format dates in MM/DD/YYYY (the one that worked for you)
   const formatUSDate = (date) => {
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const day = date.getDate().toString().padStart(2, "0");
@@ -346,17 +258,15 @@ const fetchEventsInRange = async (startStr, endStr) => {
     return `${month}/${day}/${year}`;
   };
 
-  const startFormatted = formatUSDate(start); // e.g. "12/21/2025"
-  const endFormatted = formatUSDate(end); // e.g. "02/13/2026"
-
-  //const startField = resolveFieldName("EventStartDateField");
-  //const endField = resolveFieldName("EventEndDateField");
+  const startFormatted = formatUSDate(bufferStart);
+  const endFormatted = formatUSDate(bufferEnd);
 
   // Resolve the REAL field names from ConfigStore
-  const startField = resolveFieldName("EventStartDateField") || "StartDate"; // fallback
-  const endField = resolveFieldName("EventEndDateField") || "EndDate";
-  const detailLayout =
-    resolveFieldName("EventDetailLayout") || "Visit Event Display";
+  // Get real field names from config (fallback if missing)
+  const config = window.__config__ || {};
+  const startField = config.EventStartDateField || "StartDate";
+  const endField = config.EventEndDateField || "EndDate";
+  const eventDetailLayout = config.EventDetailLayout || "Visit Event Display"; // ← This is the key! Use the config value
 
   const queryConditions = {
     [startField]: `>=${startFormatted}`,
@@ -367,8 +277,7 @@ const fetchEventsInRange = async (startStr, endStr) => {
   queryConditions.DoctorAccountName = "dev";
 
   const findRequest = {
-    //layouts: resolveFieldName("EventDetailLayout") || "Visits", // adjust fallback
-    layouts: detailLayout,
+    layouts: eventDetailLayout, // ← Re-add it here – must match the config and actual layout name
     query: [queryConditions],
     limit: 3000,
   };
@@ -379,11 +288,24 @@ const fetchEventsInRange = async (startStr, endStr) => {
   );
 
   try {
+    // ← This is the correct call in your current architecture
     const result = await fetchRecords(findRequest);
-    console.log("[fetchEventsInRange] Success result:", result);
-    return result?.data || result?.response?.data || [];
+
+    console.log("[fetchEventsInRange] Full result from fetchRecords:", result);
+
+    // Depending on what fetchRecords returns, unwrap appropriately
+    const records = result?.response?.data || result?.data || [];
+
+    if (!Array.isArray(records)) {
+      console.warn("No valid data array in response", result);
+      return [];
+    }
+
+    console.log(`[fetchEventsInRange] Received ${records.length} raw records`);
+
+    return records;
   } catch (err) {
-    console.error("[fetchEventsInRange] Error:", err);
+    console.error("[fetchEventsInRange] fetchRecords failed:", err);
     return [];
   }
 };
