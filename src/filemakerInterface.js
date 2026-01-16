@@ -5,7 +5,7 @@
 import { v4 as uuidv4 } from "uuid";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const DEFAULT_TIMEOUT_MS = 120000; // TODO: should be 30000
+const DEFAULT_TIMEOUT_MS = 30000; // TODO: should be 30000
 const CALLBACK_FUNCTION_NAME = "Fmw_Callback";
 const SESSION_STATE_KEY = "calendar.state";
 const SESSION_CONFIG_KEY = "calendar.config";

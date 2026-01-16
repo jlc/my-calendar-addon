@@ -206,17 +206,19 @@ function App() {
   }
 
   return (
-    <div style={{ height: "100vh", width: "100%" }}>
+    <div style={{ height: "100vh", width: "100vw" }}>
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
         initialView={mapViewName(getConfigField("StartingView", "Month"))}
         firstDay={getFirstDayOfWeek()}
-        headerToolbar={{
-          left: "prev,next today",
+        headerToolbar={
+          false /*{
+          left: "", //"prev,next today",
           center: "title",
-          right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-        }}
+          right: "", //"dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+          }*/
+        }
         editable={true}
         selectable={true}
         selectMirror={true}
