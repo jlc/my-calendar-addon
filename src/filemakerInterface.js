@@ -225,161 +225,111 @@ const fetchRecords = async (findRequest) => {
   }
 };
 
-/*
-const fetchEventsInRange = async (startDate, endDate) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  start.setDate(start.getDate() - 3);
-  end.setDate(end.getDate() + 3);
-
-  const request = {
-    [resolveFieldName("EventStartDateField")]:
-      `>=${start.toISOString().split("T")[0]}`,
-    [resolveFieldName("EventEndDateField")]:
-      `<=${end.toISOString().split("T")[0]}`,
-  };
-
-  return fetchRecords(request);
-};
-*/
-// src/filemakerInterface.js
-
 const fetchEventsInRange = async (startStr, endStr) => {
-  const startDate = new Date(startStr);
-  const endDate = new Date(endStr);
+  const start = new Date(startStr);
+  const end = new Date(endStr);
 
-  // Add ±2 day buffer like original addon
-  const bufferStart = new Date(startDate);
-  bufferStart.setDate(bufferStart.getDate() - 2);
-  const bufferEnd = new Date(endDate);
-  bufferEnd.setDate(bufferEnd.getDate() + 2);
+  // ±2 day buffer
+  start.setDate(start.getDate() - 2);
+  end.setDate(end.getDate() + 2);
 
-  // Format as YYYYMMDD (plain, no dashes)
-  const formatYMD = (date) => {
-    const y = date.getFullYear().toString();
-    const m = (date.getMonth() + 1).toString().padStart(2, "0");
-    const d = date.getDate().toString().padStart(2, "0");
-    return y + m + d;
+  // US MM/DD/YYYY format – test this first to bypass validation quirk
+  const formatUSDate = (date) => {
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
   };
 
-  const startYMD = formatYMD(bufferStart);
-  const endYMD = formatYMD(bufferEnd);
+  const startFormatted = formatUSDate(start); // e.g. "12/21/2025"
+  const endFormatted = formatUSDate(end); // e.g. "02/13/2026"
 
-  // Get config values (assuming you have a way to access ConfigStore fields)
-  // If not already global, import or use your config loader
-  const config = window.__config__ || {}; // Adjust based on your init
+  const startField = resolveFieldName("EventStartDateField");
+  const endField = resolveFieldName("EventEndDateField");
 
-  const startField = config.EventStartDateField || "StartDate"; // fallback
-  const endField = config.EventEndDateField || "EndDate";
-
-  const queryObj = {
-    [startField]: `>=${startYMD}`,
-    [endField]: `<${endYMD}`,
+  const queryConditions = {
+    [startField]: `>=${startFormatted}`,
+    [endField]: `<${endFormatted}`, // try <= if events on end date are missing
   };
 
-  const payload = {
-    layouts: config.EventDetailLayout || "Event Detail", // from ConfigStore
-    query: [queryObj], // array of one find request object
-    limit: 3000, // safe high limit like original
+  // Your active filter
+  queryConditions.DoctorAccountName = "dev";
+
+  const findRequest = {
+    //layouts: resolveFieldName("EventDetailLayout") || "Visits", // adjust fallback
+    layouts: "Visit Event Display", // hardcode for now or use config
+    query: [queryConditions],
+    limit: 3000,
   };
 
   console.log(
-    "[fetchEventsInRange] Calling FCCalendarFind with payload:",
-    payload,
+    "[fetchEventsInRange] US format find request:",
+    JSON.stringify(findRequest, null, 2),
   );
 
   try {
-    const result = await fmwCall("FCCalendarFind", payload);
+    const rawResult = await fetchRecords(findRequest);
+    console.log("[fetchEventsInRange] Raw result:", rawResult);
 
-    console.log("[fetchEventsInRange] Raw result:", result);
+    // Adjust based on your wrapper — aim for array of records
+    const records = rawResult?.response?.data || rawResult?.data || [];
+    console.log(`[fetchEventsInRange] ${records.length} raw records received`);
 
-    if (!result?.ok || !Array.isArray(result.data)) {
-      console.warn("[fetchEventsInRange] Invalid/no data", result);
-      return [];
-    }
-
-    // Map records (each has .fieldData)
-    return result.data.map((record) => mapRecordToEvent(record));
+    return records;
   } catch (err) {
-    console.error("[fetchEventsInRange] Call failed:", err);
+    console.error(err);
     return [];
   }
 };
 
 // ── Event transformation ────────────────────────────────────────────────────
-/*
-const mapRecordToEvent = (record) => {
-  if (!record) return null;
+const mapRecordToEvent = (fmRecord) => {
+  const fd = fmRecord.fieldData || {}; // ← THIS is the key
+
+  // Use the actual field names from your returned data + config
+  const id = fd.Id; // UUID string
+  const title = fd.Title || "Untitled";
+  const startDate = fd.StartDate;
+  const startTime = fd.StartTime || "00:00:00";
+  const endDate = fd.EndDate;
+  const endTime = fd.EndTime || "00:00:00";
+  const allDay = fd.AllDay === 1 || fd.AllDay === "1";
+
+  if (!id || !startDate) return null;
+
+  const start = parseFMDateTime(startDate, startTime);
+  const end = parseFMDateTime(endDate, endTime);
+
+  if (!start) return null;
 
   return {
-    id: record[resolveFieldName("EventPrimaryKeyField")],
-    title: record[resolveFieldName("EventTitleField")] || "",
-    start: record[resolveFieldName("EventStartDateField")],
-    end: record[resolveFieldName("EventEndDateField")],
-    allDay: !!record[resolveFieldName("EventAllDayField")],
-    editable: record[resolveFieldName("EventEditableField")] !== false,
+    id: id, // UUID is fine as string
+    title: title,
+    start: start, // must be ISO string or Date
+    end: end || undefined, // optional for all-day
+    allDay: allDay,
+    editable: fd.Editable === 1 || fd.Editable === "1",
     extendedProps: {
-      description: record[resolveFieldName("EventDescriptionField")],
+      description: fd.Description || "",
+      style: fd.Style || "", // if JSON, parse later
+      // You can add more: VisitStatus, Consultants::FirstAndLastNames, etc.
     },
-    // Add style parsing if EventStyleField is JSON/color
-  };
-};
-*/
-const mapRecordToEvent = (record) => {
-  const fieldData = record.fieldData || {}; // safe access
-  const config = window.__config__ || {}; // adjust to your config access
-
-  const id = fieldData[config.EventPrimaryKeyField];
-  if (!id) return null;
-
-  const title = fieldData[config.EventTitleField] || "Untitled";
-
-  // Build ISO start/end strings
-  const start = buildISODate(
-    fieldData[config.EventStartDateField],
-    fieldData[config.EventStartTimeField] || "00:00:00",
-  );
-
-  const end = buildISODate(
-    fieldData[config.EventEndDateField],
-    fieldData[config.EventEndTimeField] || "00:00:00",
-  );
-
-  const allDayStr = fieldData[config.EventAllDayField];
-  const allDay = allDayStr === "1" || allDayStr === true || allDayStr === "Yes";
-
-  return {
-    id: id.toString(),
-    title,
-    start,
-    end: end || undefined, // omit if same as start for all-day
-    allDay,
-    editable: true, // adjust based on config/field if needed
-    extendedProps: {
-      description: fieldData[config.EventDescriptionField] || "",
-      // Add more like location, status, custom style/color if present
-    },
-    // Example: backgroundColor: fieldData.EventColor || '#3788d8'
   };
 };
 
-// Helper: Convert FM date/time to ISO string (handle common FM formats)
-const buildISODate = (dateStr, timeStr = "00:00:00") => {
+// Helper: Parse MM/DD/YYYY + HH:mm:ss → FullCalendar ISO string
+const parseFMDateTime = (dateStr, timeStr) => {
   if (!dateStr) return null;
 
-  // FM often returns MM/DD/YYYY or YYYY-MM-DD; normalize
-  let [year, month, day] = dateStr.includes("-")
-    ? dateStr.split("-")
-    : dateStr.split("/").reverse(); // MM/DD/YYYY → YYYY/MM/DD
+  const [month, day, year] = dateStr.split("/").map((p) => p.trim());
+  if (!month || !day || !year) return null;
 
-  if (!year || !month || !day) return null;
-
-  const [h, m, s = "00"] = timeStr
+  const [hours, minutes, seconds = "00"] = timeStr
     .split(":")
-    .map((part) => part.padStart(2, "0"));
+    .map((p) => p.trim());
 
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${h}:${m}:${s}`;
+  // Build ISO: YYYY-MM-DDTHH:mm:ss
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hours}:${minutes}:${seconds}`;
 };
 
 // ── Calendar controls ───────────────────────────────────────────────────────
