@@ -162,14 +162,32 @@ function App() {
           fetchInfo.endStr,
         );
 
+        console.log("[Raw Fetch (records from FM)]", eventsData); // ← NEW: see the actual array
+
+        /*
         const fcEvents = eventsData
           .map(mapRecordToEvent)
+          .filter((event) => event !== null && event.id);
+          */
+
+        const fcEvents = eventsData
+          .map((record, index) => {
+            const event = mapRecordToEvent(record);
+            if (!event) {
+              console.warn(`[Mapping failed for record ${index}]`, record);
+            }
+            return event;
+          })
           .filter((event) => event !== null && event.id);
 
         currentEvents.current = fcEvents; // Update ref for future fallbacks
         successCallback(fcEvents);
 
-        console.log("[Fetch] Completed - count:", fcEvents.length);
+        console.log(
+          "[Fetch] Completed - Mapped count:",
+          fcEvents.length,
+          fcEvents,
+        );
       } catch (error) {
         console.error("[Fetch] Failed:", error);
         successCallback(currentEvents.current); // Use ref fallback
@@ -240,5 +258,24 @@ function App() {
     </div>
   );
 }
+
+/*
+events: async (fetchInfo, successCallback, failureCallback) => {
+  try {
+    const rawRecords = await fetchEventsInRange(fetchInfo.startStr, fetchInfo.endStr);
+    const fcEvents = rawRecords
+      .map(mapRecordToEvent)
+      .filter(event => event !== null);
+
+    console.log("[FullCalendar] Mapped events:", fcEvents);  // ← debug here!
+
+    successCallback(fcEvents);
+  } catch (err) {
+    console.error(err);
+    failureCallback(err);
+  }
+}
+
+*/
 
 export default App;

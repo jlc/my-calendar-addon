@@ -288,19 +288,22 @@ const mapRecordToEvent = (fmRecord) => {
 
   // Use the actual field names from your returned data + config
   const id = fd.Id; // UUID string
+  if (!id) {
+    console.warn("Missing Id:", fd);
+    return null;
+  }
+
   const title = fd.Title || "Untitled";
-  const startDate = fd.StartDate;
-  const startTime = fd.StartTime || "00:00:00";
-  const endDate = fd.EndDate;
-  const endTime = fd.EndTime || "00:00:00";
+
+  const start = parseFMDateTime(fd.StartDate, fd.StartTime || "00:00:00");
+  const end = parseFMDateTime(fd.EndDate, fd.EndTime || "00:00:00");
+
   const allDay = fd.AllDay === 1 || fd.AllDay === "1";
 
-  if (!id || !startDate) return null;
-
-  const start = parseFMDateTime(startDate, startTime);
-  const end = parseFMDateTime(endDate, endTime);
-
-  if (!start) return null;
+  if (!start) {
+    console.warn("Invalid start date/time:", fd.StartDate, fd.StartTime);
+    return null;
+  }
 
   return {
     id: id, // UUID is fine as string
@@ -316,20 +319,20 @@ const mapRecordToEvent = (fmRecord) => {
     },
   };
 };
-
 // Helper: Parse MM/DD/YYYY + HH:mm:ss → FullCalendar ISO string
 const parseFMDateTime = (dateStr, timeStr) => {
   if (!dateStr) return null;
 
+  // Input: "01/15/2026" (MM/DD/YYYY)
   const [month, day, year] = dateStr.split("/").map((p) => p.trim());
   if (!month || !day || !year) return null;
 
-  const [hours, minutes, seconds = "00"] = timeStr
+  const [h, m, s = "00"] = timeStr
     .split(":")
-    .map((p) => p.trim());
+    .map((p) => p.trim().padStart(2, "0"));
 
-  // Build ISO: YYYY-MM-DDTHH:mm:ss
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hours}:${minutes}:${seconds}`;
+  // Output ISO for FullCalendar
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${h}:${m}:${s}`;
 };
 
 // ── Calendar controls ───────────────────────────────────────────────────────
