@@ -102,9 +102,12 @@ import {
   resolveFieldName,
 } from "./filemakerInterface";
 
+// src/App.jsx
+// (Keep the top initialization script and imports unchanged)
+
 function App() {
   const calendarRef = useRef(null);
-  const [events, setEvents] = useState([]); // cached/fallback events
+  const currentEvents = useRef([]); // Ref for fallback events (replaces state)
   const [isInitialized, setIsInitialized] = useState(false);
 
   // ── 1. Initialize FileMaker interface once on mount ───────────────────────
@@ -143,7 +146,7 @@ function App() {
   }, [isInitialized]);
 
   // ── 2. Dynamic event source for FullCalendar ──────────────────────────────
-  // 1. Define the raw async fetch (useCallback to memoize)
+  // 1. Define the raw async fetch (useCallback to memoize, no deps needed now)
   const rawFetch = useCallback(
     async (fetchInfo, successCallback, failureCallback) => {
       try {
@@ -163,17 +166,17 @@ function App() {
           .map(mapRecordToEvent)
           .filter((event) => event !== null && event.id);
 
-        setEvents(fcEvents);
+        currentEvents.current = fcEvents; // Update ref for future fallbacks
         successCallback(fcEvents);
 
         console.log("[Fetch] Completed - count:", fcEvents.length);
       } catch (error) {
         console.error("[Fetch] Failed:", error);
-        successCallback(events); // fallback
+        successCallback(currentEvents.current); // Use ref fallback
       }
     },
-    [events],
-  ); // depend on cached events
+    [], // No dependencies → stable across renders
+  );
 
   // 2. Create a debounced version (memoized so it doesn't recreate on render)
   const debouncedFetch = useMemo(() => {
@@ -223,7 +226,7 @@ function App() {
         eventDrop={(info) => notifyEventDrop(info.event, info.delta)}
         eventResize={(info) => notifyEventResize(info.event)}
         select={(info) => notifyDateSelect(info)}
-        //datesSet={(info) => notifyViewChange(info.view)}
+        datesSet={(info) => notifyViewChange(info.view)}
         // Optional but recommended enhancements:
         height="100%"
         locale={getConfigField("Locale", "en")}
