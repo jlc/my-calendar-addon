@@ -237,7 +237,7 @@ function App() {
         dayMaxEvents={true}
         events={debouncedFetch}
         eventClick={(info) => notifyEventClick(info.event)}
-        eventDrop={(info) => notifyEventDrop(info.event, info.delta)}
+        eventDrop={(info) => notifyEventDrop(info)}
         eventResize={(info) => notifyEventResize(info.event)}
         select={(info) => notifyDateSelect(info)}
         datesSet={(info) => notifyViewChange(info.view)}

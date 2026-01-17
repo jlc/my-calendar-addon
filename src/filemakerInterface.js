@@ -471,6 +471,153 @@ const setupWindowFunctions = (calendarRef) => {
 };
 
 // ── Event notify ────────────────────────────────────────────────────────────
+
+// ... (keep all previous code unchanged, including sendToFileMaker, fmwInit, etc.)
+
+// Helper to send wrapped notifications (fire-and-forget)
+const sendWrappedEvent = (eventType, dataPayload = {}) => {
+  const fetchId = crypto.randomUUID();
+
+  const fullParam = {
+    Data: dataPayload,
+    Meta: {
+      EventType: eventType, // Placed in Meta to match script extraction
+      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
+      FetchId: fetchId,
+      Callback: "Fmw_Callback",
+      Config: config, // Full config, as script may use it
+    },
+  };
+
+  let paramJson = JSON.stringify(fullParam);
+
+  // Remove outer quotes if quirk adds them
+  if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
+    paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
+  }
+
+  console.log(
+    "[sendWrappedEvent] Sending for",
+    eventType,
+    ":",
+    paramJson.substring(0, 100) + "...",
+  );
+
+  if (window.FileMaker?.PerformScript) {
+    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
+  } else {
+    console.warn("[sendWrappedEvent] FileMaker.PerformScript not available");
+  }
+};
+
+// Updated notify functions (complete & fixed to match script EventTypes and params)
+
+// Event Click (already working, but consistent with wrapper)
+const notifyEventClick = (event) => {
+  console.log("[notifyEventClick] Event clicked:", event.id);
+
+  const dataPayload = {
+    id: event.id.toString(),
+    eventDisplayLayout: getConfigField(
+      "EventDetailLayout",
+      "Visit Event Display",
+    ),
+    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+    editable: event.editable ? 1 : 0,
+  };
+
+  sendWrappedEvent("EventClick", dataPayload);
+};
+
+// View Change (uses "ViewStateChanged", send full view state in Data)
+const notifyViewChange = (view) => {
+  console.log("[notifyViewChange] View changed:", view.type);
+
+  const dataPayload = {
+    View: view.type, // Script stores entire Data as CurrentState
+    // Add more if needed, e.g. dates: view.startStr, view.endStr
+  };
+
+  sendWrappedEvent("ViewStateChanged", dataPayload);
+};
+
+// Date Select (uses "NewEventFromSelected", send start/end as Data)
+const notifyDateSelect = (info) => {
+  console.log("[notifyDateSelect] Date selected:", info.startStr, info.endStr);
+
+  const dataPayload = {
+    newStartDate: info.startStr.split("T")[0], // YYYY-MM-DD
+    newStartTime: info.startStr.split("T")[1] || "00:00:00",
+    newEndDate: info.endStr.split("T")[0],
+    newEndTime: info.endStr.split("T")[1] || "00:00:00",
+    // Add field names if script uses them for new event
+    startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
+    startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
+    endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
+    endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
+    eventDisplayLayout: getConfigField(
+      "EventDetailLayout",
+      "Visit Event Display",
+    ),
+    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+    editable: 1, // Assume new event is editable
+  };
+
+  sendWrappedEvent("NewEventFromSelected", dataPayload);
+};
+
+// Event Drop (uses "EventDropped", send new dates/times and field names)
+const notifyEventDrop = (info) => {
+  if (!info?.event?.id) {
+    console.error("[notifyEventDrop] Invalid drop info - no event ID");
+    return;
+  }
+
+  console.log("[notifyEventDrop] Event dropped:", info.event.id, info.delta);
+
+  const dataPayload = {
+    id: info.event.id.toString(),
+    newStartDate: info.event.startStr.split("T")[0],
+    newStartTime: info.event.startStr.split("T")[1] || "00:00:00",
+    newEndDate: info.event.endStr ? info.event.endStr.split("T")[0] : null,
+    newEndTime: info.event.endStr
+      ? info.event.endStr.split("T")[1] || "00:00:00"
+      : null,
+    startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
+    startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
+    endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
+    endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
+    eventDisplayLayout: getConfigField(
+      "EventDetailLayout",
+      "Visit Event Display",
+    ),
+    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+  };
+
+  sendWrappedEvent("EventDropped", dataPayload);
+};
+
+// Event Resize (uses "EventResized", send new end date/time and field names)
+const notifyEventResize = (info) => {
+  console.log("[notifyEventResize] Event resized:", info.event.id);
+
+  const dataPayload = {
+    id: info.event.id.toString(),
+    newEndDate: info.event.endStr.split("T")[0],
+    newEndTime: info.event.endStr.split("T")[1] || "00:00:00",
+    endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
+    endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
+    eventDisplayLayout: getConfigField(
+      "EventDetailLayout",
+      "Visit Event Display",
+    ),
+    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+  };
+
+  sendWrappedEvent("EventResized", dataPayload);
+};
+
+/*
 const notifyEventClick = (event) => {
   console.log("[notifyEventClick] Event clicked:", event.id);
 
@@ -513,44 +660,7 @@ const notifyEventClick = (event) => {
   }
 };
 
-/*
-const notifyEventClick = (event) => {
-  console.log("[notifyEventClick] Event clicked:", event.id);
-
-  const fetchId = crypto.randomUUID(); // Generate unique ID (not really used here, but keeps consistency)
-
-  const fullParam = {
-    Data: {
-      EventType: "EventClick",
-      id: event.id.toString(),
-      eventDisplayLayout: getConfigField(
-        "EventDetailLayout",
-        "Visit Event Display",
-      ),
-      idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
-      editable: event.editable ? 1 : 0,
-    },
-    Meta: {
-      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
-      FetchId: fetchId,
-      Callback: "Fmw_Callback", // Optional, but harmless
-    },
-  };
-
-  const paramJson = JSON.stringify(fullParam);
-
-  console.log(
-    "[notifyEventClick] Sending wrapped param:",
-    paramJson.substring(0, 100) + "...",
-  );
-
-  if (window.FileMaker?.PerformScript) {
-    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
-  } else {
-    console.warn("[notifyEventClick] FileMaker.PerformScript not available");
-  }
-};
-*/
+//
 
 const notifyEventDrop = (event, delta) => {
   console.log("[notifyEventDrop] Event dropped:", event.id, delta);
@@ -571,6 +681,7 @@ const notifyViewChange = (view) => {
   console.log("[notifyViewChange] View changed:", view.type);
   sendEvent("ViewChange", { View: view.type });
 };
+*/
 
 export {
   fmwInit,
