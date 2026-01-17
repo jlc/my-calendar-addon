@@ -234,6 +234,8 @@ function App() {
         editable={true}
         eventDurationEditable={true}
         eventResizableFromStart={true}
+        eventDragMinDistance={1}
+        dragScroll={true}
         selectable={true}
         selectMirror={true}
         dayMaxEvents={true}
@@ -250,6 +252,8 @@ function App() {
         slotMinTime={getConfigField("DayStartTime", "08:00:00")}
         slotMaxTime={getConfigField("DayEndTime", "20:00:00")}
         // You can add more later: eventContent, custom eventDidMount for tooltips, etc.
+        // Optional: force visual debug
+        eventMinHeight={30} // Ensures events are tall enough for handles
       />
     </div>
   );

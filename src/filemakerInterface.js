@@ -415,6 +415,18 @@ const mapRecordToEvent = (fmRecord) => {
     `[mapRecordToEvent] SUCCESS: ID=${id}, Editable=${editable}, Start=${start}, End=${end}, AllDay=${allDay}, Title=${title}`,
   );
 
+  console.log("[map] Full event object sent to FullCalendar:", {
+    id,
+    title,
+    start,
+    end,
+    allDay,
+    editable: true,
+    durationEditable: true,
+    startStr: new Date(start).toISOString(),
+    endStr: end ? new Date(end).toISOString() : "missing",
+  });
+
   return {
     id: String(id), // Ensure string for FullCalendar
     title,
@@ -548,24 +560,32 @@ const notifyViewChange = (view) => {
 
 // Date Select (uses "NewEventFromSelected", send start/end as Data)
 const notifyDateSelect = (info) => {
-  console.log("[notifyDateSelect] Date selected:", info.startStr, info.endStr);
+  console.log(
+    "[notifyDateSelect] Date selected:",
+    info.startStr,
+    "to",
+    info.endStr,
+  );
 
   const dataPayload = {
-    newStartDate: info.startStr.split("T")[0], // YYYY-MM-DD
-    newStartTime: info.startStr.split("T")[1] || "00:00:00",
-    newEndDate: info.endStr.split("T")[0],
-    newEndTime: info.endStr.split("T")[1] || "00:00:00",
-    // Add field names if script uses them for new event
+    // Use EXACT key names expected by the child script
+    StartDateStr: formatFMSetDate(info.startStr), // DD/MM/YYYY
+    StartTimeStr: cleanTime(info.startStr.split("T")[1] || "00:00:00"),
+    EndDateStr: formatFMSetDate(info.endStr),
+    EndTimeStr: cleanTime(info.endStr.split("T")[1] || "00:00:00"),
+
+    // Keep the other required keys (field names, etc.)
     startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
     startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
     endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
     endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
+
     eventDisplayLayout: getConfigField(
       "EventDetailLayout",
       "Visit Event Display",
     ),
     idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
-    editable: 1, // Assume new event is editable
+    editable: 1,
   };
 
   sendWrappedEvent("NewEventFromSelected", dataPayload);
@@ -589,7 +609,17 @@ const formatFMSetDate = (isoStr) => {
 // Helper: Clean time to HH:mm:ss only (remove offset)
 const cleanTime = (timeStr) => {
   if (!timeStr) return "00:00:00";
-  return timeStr.split("+")[0].split("Z")[0]; // removes +01:00 or Z
+
+  // Remove timezone and milliseconds
+  let clean = timeStr.split("+")[0].split("Z")[0].split(".")[0];
+
+  // Split and pad
+  let [h = "00", m = "00", s = "00"] = clean.split(":");
+  h = h.padStart(2, "0");
+  m = m.padStart(2, "0");
+  s = s.padStart(2, "0");
+
+  return `${h}:${m}:${s}`;
 };
 
 const notifyEventDrop = (info) => {
@@ -622,18 +652,26 @@ const notifyEventDrop = (info) => {
   };
 
   sendWrappedEvent("EventDropped", dataPayload);
+
+  // Optional: force immediate refetch to see the change faster
+  window.Calendar_Refresh?.();
 };
 
 // Event Resize (uses "EventResized", send new end date/time and field names)
-
 const notifyEventResize = (info) => {
-  // Safety check
   if (!info?.event?.id || !info?.event?.end) {
-    console.warn("[notifyEventResize] Invalid resize info - missing ID or end");
+    console.warn("[notifyEventResize] Invalid resize info");
     return;
   }
 
-  console.log("[notifyEventResize] Event resized:", info.event.id);
+  console.log(
+    "[notifyEventResize] Event resized:",
+    info.event.id,
+    "new start:",
+    info.event.startStr,
+    "new end:",
+    info.event.endStr,
+  );
 
   const dataPayload = {
     id: info.event.id.toString(),
@@ -647,16 +685,17 @@ const notifyEventResize = (info) => {
       "Visit Event Display",
     ),
 
-    // New END values after resize (date in DD/MM/YYYY, time cleaned)
-    newEndDate: formatFMSetDate(info.event.endStr),
-    newEndTime: cleanTime(info.event.endStr.split("T")[1] || "00:00:00"),
-
-    // Optional: also send current start (can be useful for validation or logging)
+    // Send BOTH new start and new end (fixes start-resize reset)
     newStartDate: formatFMSetDate(info.event.startStr),
     newStartTime: cleanTime(info.event.startStr.split("T")[1] || "00:00:00"),
+    newEndDate: formatFMSetDate(info.event.endStr),
+    newEndTime: cleanTime(info.event.endStr.split("T")[1] || "00:00:00"),
   };
 
   sendWrappedEvent("EventResized", dataPayload);
+
+  // Optional: force immediate refetch to see the change faster
+  window.Calendar_Refresh?.();
 };
 
 export {
