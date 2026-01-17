@@ -190,6 +190,7 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   };
 
   const paramJson = JSON.stringify(fullParam);
+  console.log("[DEBUG] Final JSON string sent to FM script:", paramJson);
   console.log(
     `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
     fetchId,
@@ -228,6 +229,10 @@ const sendEvent = (eventType, payload = {}) => {
 
 const fetchRecords = async (findRequest) => {
   try {
+    console.log(
+      "FULL FIND REQUEST BEING SENT:",
+      JSON.stringify(findRequest, null, 2),
+    );
     const response = await sendToFileMaker("FCCalendarFind", findRequest);
     console.log("[fetchRecords] Full callback response:", response);
 
@@ -255,29 +260,39 @@ const fetchEventsInRange = async (startStr, endStr) => {
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const day = date.getDate().toString().padStart(2, "0");
     const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
+    //return `${month}/${day}/${year}`;
+    return `${year}+${month}+${day}`;
   };
 
   const startFormatted = formatUSDate(bufferStart);
   const endFormatted = formatUSDate(bufferEnd);
 
-  // Resolve the REAL field names from ConfigStore
-  // Get real field names from config (fallback if missing)
-  const config = window.__config__ || {};
-  const startField = config.EventStartDateField || "StartDate";
-  const endField = config.EventEndDateField || "EndDate";
-  const eventDetailLayout = config.EventDetailLayout || "Visit Event Display"; // ← This is the key! Use the config value
+  // Resolve the REAL field names from ConfigStore (using getConfigField for .value unwrap)
+  const startField = getConfigField("EventStartDateField", "StartDate");
+  const endField = getConfigField("EventEndDateField", "EndDate");
+  const eventDetailLayout = getConfigField("EventDetailLayout", "EventDetail"); // Adjust default if known
 
   const queryConditions = {
     [startField]: `>=${startFormatted}`,
-    [endField]: `<${endFormatted}`, // try <= if events on end date are missing
+    [endField]: `<=${endFormatted}`, // try <= if events on end date are missing
+    // Remove hardcoded filter unless needed for your test data
+    // DoctorAccountName: "dev",
   };
 
-  // Your active filter
-  queryConditions.DoctorAccountName = "dev";
+  const safeLayout = (eventDetailLayout || "").trim();
+  if (!safeLayout) {
+    console.error(
+      "[fetchEventsInRange] ERROR: No layout name in config! Using fallback.",
+    );
+    // Optional: fallback to a known good layout
+    // safeLayout = "Events";
+  }
+
+  console.log("[DEBUG] Using layout:", safeLayout);
 
   const findRequest = {
-    layouts: eventDetailLayout, // ← Re-add it here – must match the config and actual layout name
+    action: "read",
+    layouts: safeLayout,
     query: [queryConditions],
     limit: 3000,
   };
@@ -288,7 +303,6 @@ const fetchEventsInRange = async (startStr, endStr) => {
   );
 
   try {
-    // ← This is the correct call in your current architecture
     const result = await fetchRecords(findRequest);
 
     console.log("[fetchEventsInRange] Full result from fetchRecords:", result);
@@ -314,24 +328,59 @@ const fetchEventsInRange = async (startStr, endStr) => {
 const mapRecordToEvent = (fmRecord) => {
   const fd = fmRecord.fieldData || {}; // ← THIS is the key
 
-  // Use the actual field names from your returned data + config
-  const id = fd.Id; // UUID string
+  // Dynamically resolve field names from config
+  const idField = getConfigField("EventIdField", "Id");
+  const titleField = getConfigField("EventTitleField", "Title");
+  const startDateField = getConfigField("EventStartDateField", "StartDate");
+  const startTimeField = getConfigField("EventStartTimeField", "StartTime");
+  const endDateField = getConfigField("EventEndDateField", "EndDate");
+  const endTimeField = getConfigField("EventEndTimeField", "EndTime");
+  const allDayField = getConfigField("AllDayField", "AllDay");
+  const descriptionField = getConfigField(
+    "EventDescriptionField",
+    "Description",
+  );
+  const editableField = getConfigField("EditableField", "Editable");
+  // Add more as needed, e.g., colorField = getConfigField("EventColorField", "Color");
+
+  const id = fd[idField];
   if (!id) {
     console.warn("Missing Id:", fd);
     return null;
   }
 
-  const title = fd.Title || "Untitled";
+  const title = fd[titleField] || "Untitled";
 
-  const start = parseFMDateTime(fd.StartDate, fd.StartTime || "00:00:00");
-  const end = parseFMDateTime(fd.EndDate, fd.EndTime || "00:00:00");
+  const start = parseFMDateTime(
+    fd[startDateField],
+    fd[startTimeField] || "00:00:00",
+  );
+  let end = parseFMDateTime(fd[endDateField], fd[endTimeField] || "00:00:00");
 
-  const allDay = fd.AllDay === 1 || fd.AllDay === "1";
+  const allDay =
+    fd[allDayField] === 1 ||
+    fd[allDayField] === "1" ||
+    (!fd[startTimeField] && !fd[endTimeField]);
 
   if (!start) {
-    console.warn("Invalid start date/time:", fd.StartDate, fd.StartTime);
+    console.warn(
+      "Invalid start date/time:",
+      fd[startDateField],
+      fd[startTimeField],
+    );
     return null;
   }
+
+  // For all-day/multi-day: if no end, default to start +1 day (FullCalendar expects end-exclusive)
+  if (!end && allDay) {
+    end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    end = end.toISOString();
+  }
+
+  console.log(
+    `[mapRecordToEvent] Mapped event: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
+  );
 
   return {
     id: id, // UUID is fine as string
@@ -339,11 +388,11 @@ const mapRecordToEvent = (fmRecord) => {
     start: start, // must be ISO string or Date
     end: end || undefined, // optional for all-day
     allDay: allDay,
-    editable: fd.Editable === 1 || fd.Editable === "1",
+    editable: fd[editableField] === 1 || fd[editableField] === "1",
     extendedProps: {
-      description: fd.Description || "",
-      style: fd.Style || "", // if JSON, parse later
-      // You can add more: VisitStatus, Consultants::FirstAndLastNames, etc.
+      description: fd[descriptionField] || "",
+      // style: fd.Style || "", // if JSON, parse later
+      // Add more: VisitStatus, Consultants::FirstAndLastNames, etc.
     },
   };
 };
@@ -355,9 +404,9 @@ const parseFMDateTime = (dateStr, timeStr) => {
   const [month, day, year] = dateStr.split("/").map((p) => p.trim());
   if (!month || !day || !year) return null;
 
-  const [h, m, s = "00"] = timeStr
-    .split(":")
-    .map((p) => p.trim().padStart(2, "0"));
+  const [h = "00", m = "00", s = "00"] = timeStr
+    ? timeStr.split(":").map((p) => p.trim().padStart(2, "0"))
+    : ["00", "00", "00"];
 
   // Output ISO for FullCalendar
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${h}:${m}:${s}`;
@@ -384,79 +433,44 @@ const setupWindowFunctions = (calendarRef) => {
   });
 };
 
-// ── Event notify handlers ───────────────────────────────────────────────────
-const notifyEventClick = (event) =>
-  sendEvent("EventClick", { EventID: event.id });
-
-const notifyEventDrop = (event, delta) =>
-  sendEvent("EventDropped", {
-    EventID: event.id,
-    NewStart: event.start.toISOString(),
-    NewEnd: event.end?.toISOString(),
-    DeltaDays: delta?.days,
-    DeltaMs: delta?.milliseconds,
-  });
-
-const notifyEventResize = (event) =>
-  sendEvent("EventResized", {
-    EventID: event.id,
-    NewStart: event.start.toISOString(),
-    NewEnd: event.end?.toISOString(),
-  });
-
-const notifyDateSelect = (selection) =>
-  sendEvent("NewEventFromSelected", {
-    Start: selection.start.toISOString(),
-    End: selection.end.toISOString(),
-    AllDay: selection.allDay,
-  });
-
-let lastViewChangeTime = 0;
-const notifyViewChange = (view) => {
-  const now = Date.now();
-  if (now - lastViewChangeTime < 1000) {
-    // 1 second cooldown
-    console.log("[ViewChange] Skipped - too soon");
-    return;
-  }
-  lastViewChangeTime = now;
-
-  const state = {
-    type: view.type,
-    title: view.title,
-    activeStart: view.activeStart.toISOString(),
-    activeEnd: view.activeEnd.toISOString(),
-    currentStart: view.currentStart.toISOString(),
-    currentEnd: view.currentEnd.toISOString(),
-    calendarDate: view.calendar.getDate().toISOString(),
-    currentDate: new Date().toISOString(),
-  };
-
-  // Add this guard to avoid loop if state hasn't changed
-  const prevState = getSessionItem(SESSION_STATE_KEY);
-  if (JSON.stringify(state) === JSON.stringify(prevState)) {
-    console.log("[ViewChange] State unchanged - skipping send");
-    return;
-  }
-
-  setSessionItem(SESSION_STATE_KEY, state); // Persist like CurrentState.json
-  sendEvent("ViewStateChanged", state);
+// ── Event notify ────────────────────────────────────────────────────────────
+const notifyEventClick = (event) => {
+  console.log("[notifyEventClick] Event clicked:", event.id);
+  sendEvent("EventClick", { EventId: event.id });
 };
 
-// ── All exports (named only - no duplicates) ────────────────────────────────
+const notifyEventDrop = (event, delta) => {
+  console.log("[notifyEventDrop] Event dropped:", event.id, delta);
+  sendEvent("EventDrop", { EventId: event.id, Delta: delta });
+};
+
+const notifyEventResize = (event) => {
+  console.log("[notifyEventResize] Event resized:", event.id);
+  sendEvent("EventResize", { EventId: event.id });
+};
+
+const notifyDateSelect = (info) => {
+  console.log("[notifyDateSelect] Date selected:", info.startStr, info.endStr);
+  sendEvent("DateSelect", { Start: info.startStr, End: info.endStr });
+};
+
+const notifyViewChange = (view) => {
+  console.log("[notifyViewChange] View changed:", view.type);
+  sendEvent("ViewChange", { View: view.type });
+};
+
 export {
   fmwInit,
   setupWindowFunctions,
   fetchEventsInRange,
   mapRecordToEvent,
-  sendEvent,
   notifyEventClick,
   notifyEventDrop,
   notifyEventResize,
   notifyDateSelect,
   notifyViewChange,
   getConfigField,
-  resolveFieldName,
   mapViewName,
   getFirstDayOfWeek,
+  resolveFieldName,
 };

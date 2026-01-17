@@ -164,12 +164,6 @@ function App() {
 
         console.log("[Raw Fetch (records from FM)]", eventsData); // ← NEW: see the actual array
 
-        /*
-        const fcEvents = eventsData
-          .map(mapRecordToEvent)
-          .filter((event) => event !== null && event.id);
-          */
-
         const fcEvents = eventsData
           .map((record, index) => {
             const event = mapRecordToEvent(record);
@@ -258,24 +252,5 @@ function App() {
     </div>
   );
 }
-
-/*
-events: async (fetchInfo, successCallback, failureCallback) => {
-  try {
-    const rawRecords = await fetchEventsInRange(fetchInfo.startStr, fetchInfo.endStr);
-    const fcEvents = rawRecords
-      .map(mapRecordToEvent)
-      .filter(event => event !== null);
-
-    console.log("[FullCalendar] Mapped events:", fcEvents);  // ← debug here!
-
-    successCallback(fcEvents);
-  } catch (err) {
-    console.error(err);
-    failureCallback(err);
-  }
-}
-
-*/
 
 export default App;
