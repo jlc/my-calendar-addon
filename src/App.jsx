@@ -231,6 +231,7 @@ function App() {
           right: "", //"dayGridMonth,timeGridWeek,timeGridDay,listWeek",
           }*/
         }
+        allDaySlot={false}
         editable={true}
         eventDurationEditable={true}
         eventResizableFromStart={true}
