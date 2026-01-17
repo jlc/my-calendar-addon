@@ -89,11 +89,9 @@ const fmwInit = (onReady = () => {}) => {
         ) {
           // Already an object → use directly (current successful case)
           props = window.__initialProps__;
-          console.log("[fmwInit] Using already-parsed object for props");
         } else if (typeof window.__initialProps__ === "string") {
           // String → parse it (fallback for other situations)
           props = JSON.parse(window.__initialProps__);
-          console.log("[fmwInit] Parsed string to object");
         } else {
           throw new Error("Unexpected type for __initialProps__");
         }
@@ -123,7 +121,7 @@ const fmwInit = (onReady = () => {}) => {
     initialState = getSessionItem(SESSION_STATE_KEY) || {};
     addonUUID = initialState.AddonUUID || uuidv4();
 
-    console.log("[fmwInit] Recovered from sessionStorage");
+    //console.log("[fmwInit] Recovered from sessionStorage");
     onReady();
   }, 80);
 };
@@ -141,7 +139,7 @@ window.Fmw_Callback = function (jsonString) {
 
   try {
     const data = JSON.parse(jsonString);
-    console.log("[Fmw_Callback] Parsed:", data);
+    //console.log("[Fmw_Callback] Parsed:", data);
 
     // Try to find FetchId in multiple possible locations (robust)
     let fetchId =
@@ -198,12 +196,12 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   };
 
   const paramJson = JSON.stringify(fullParam);
-  console.log(
+  /*console.log(
     `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
     fetchId,
     "Param:",
     fullParam,
-  );
+  );*/
 
   return new Promise((resolve, reject) => {
     pendingCallbacks.set(fetchId, { resolve, reject });
@@ -233,8 +231,8 @@ const sendEvent = (dummyType, payload = {}) => {
     paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
   }
 
-  console.log("[sendEvent] CLEAN JSON:", paramJson);
-  console.log("[sendEvent] First 50 chars:", paramJson.substring(0, 50));
+  //console.log("[sendEvent] CLEAN JSON:", paramJson);
+  //console.log("[sendEvent] First 50 chars:", paramJson.substring(0, 50));
 
   if (window.FileMaker?.PerformScript) {
     window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
@@ -248,7 +246,7 @@ const fetchRecords = async (findRequest) => {
       JSON.stringify(findRequest, null, 2),
     );*/
     const response = await sendToFileMaker("FCCalendarFind", findRequest);
-    console.log("[fetchRecords] Full callback response:", response);
+    //console.log("[fetchRecords] Full callback response:", response);
 
     // Adjust unwrapping based on what FM sends
     // From your $result: it's {response: {dataInfo, data: [...]}, messages: [...]}
@@ -304,7 +302,7 @@ const fetchEventsInRange = async (startStr, endStr) => {
     // safeLayout = "Events";
   }
 
-  console.log("[DEBUG] Using layout:", safeLayout);
+  //console.log("[DEBUG] Using layout:", safeLayout);
 
   const findRequest = {
     layouts: safeLayout,
@@ -312,15 +310,15 @@ const fetchEventsInRange = async (startStr, endStr) => {
     limit: 3000,
   };
 
-  console.log(
+  /*console.log(
     "[fetchEventsInRange] Correct payload:",
     JSON.stringify(findRequest, null, 2),
-  );
+  );*/
 
   try {
     const result = await fetchRecords(findRequest);
 
-    console.log("[fetchEventsInRange] Full result from fetchRecords:", result);
+    //console.log("[fetchEventsInRange] Full result from fetchRecords:", result);
 
     // Depending on what fetchRecords returns, unwrap appropriately
     const records = result?.response?.data || result?.data || [];
@@ -358,7 +356,7 @@ const mapRecordToEvent = (fmRecord) => {
     resolveFieldName("EventDescriptionField") || "Description";
   // Add more as needed, e.g. styleField = resolveFieldName("EventStyleField") || "Style";
 
-  console.log("[DEBUG] Resolved field names:", {
+  /*console.log("[DEBUG] Resolved field names:", {
     id: idField,
     title: titleField,
     startDate: startDateField,
@@ -368,7 +366,7 @@ const mapRecordToEvent = (fmRecord) => {
     allDay: allDayField,
     editable: editableField,
     description: descriptionField,
-  });
+  });*/
 
   const id = fd[idField];
   if (!id) {
@@ -411,9 +409,9 @@ const mapRecordToEvent = (fmRecord) => {
 
   const editable = fd[editableField] === 1 || fd[editableField] === "1" || true;
 
-  console.log(
+  /*console.log(
     `[mapRecordToEvent] SUCCESS: ID=${id}, Editable=${editable}, Start=${start}, End=${end}, AllDay=${allDay}, Title=${title}`,
-  );
+    );
 
   console.log("[map] Full event object sent to FullCalendar:", {
     id,
@@ -425,7 +423,7 @@ const mapRecordToEvent = (fmRecord) => {
     durationEditable: true,
     startStr: new Date(start).toISOString(),
     endStr: end ? new Date(end).toISOString() : "missing",
-  });
+    });*/
 
   return {
     id: String(id), // Ensure string for FullCalendar
@@ -513,12 +511,12 @@ const sendWrappedEvent = (eventType, dataPayload = {}) => {
     paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
   }
 
-  console.log(
+  /*console.log(
     "[sendWrappedEvent] Sending for",
     eventType,
     ":",
     paramJson.substring(0, 100) + "...",
-  );
+  );*/
 
   if (window.FileMaker?.PerformScript) {
     window.FileMaker.PerformScript("FCCalendarEvents", paramJson);

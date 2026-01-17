@@ -13,14 +13,6 @@ if (
 (function initializeFMProps() {
   const propsValue = window.__initialProps__;
 
-  console.log("[FM Init Debug] Type of __initialProps__:", typeof propsValue);
-  console.log(
-    "[FM Init Debug] Value preview:",
-    typeof propsValue === "object" && propsValue !== null
-      ? "[Object with keys: " + Object.keys(propsValue).join(", ") + "]"
-      : String(propsValue).slice(0, 200),
-  );
-
   if (
     propsValue === "__PROPS__" ||
     propsValue === undefined ||
@@ -33,9 +25,9 @@ if (
 
   // If it's ALREADY an object → we're good! (this is your current case)
   if (typeof propsValue === "object" && propsValue !== null) {
-    console.log(
+    /*console.log(
       "[FM Init] SUCCESS: __initialProps__ is already a parsed object",
-    );
+    );*/
     if (propsValue.Config) {
       console.log("Config keys:", Object.keys(propsValue.Config));
     }
@@ -150,19 +142,19 @@ function App() {
   const rawFetch = useCallback(
     async (fetchInfo, successCallback, failureCallback) => {
       try {
-        console.log(
+        /*console.log(
           "[Fetch] Starting for range:",
           fetchInfo.startStr,
           "-",
           fetchInfo.endStr,
-        );
+        );*/
 
         const eventsData = await fetchEventsInRange(
           fetchInfo.startStr,
           fetchInfo.endStr,
         );
 
-        console.log("[Raw Fetch (records from FM)]", eventsData); // ← NEW: see the actual array
+        //console.log("[Raw Fetch (records from FM)]", eventsData); // ← NEW: see the actual array
 
         const fcEvents = eventsData
           .map((record, index) => {
@@ -178,12 +170,12 @@ function App() {
         successCallback(fcEvents);
 
         console.log(
-          "[Fetch] Completed - Mapped count:",
+          "[rawFetch of events] Completed - Mapped count:",
           fcEvents.length,
           fcEvents,
         );
       } catch (error) {
-        console.error("[Fetch] Failed:", error);
+        console.error("[rawFetch of events] Failed:", error);
         successCallback(currentEvents.current); // Use ref fallback
       }
     },
