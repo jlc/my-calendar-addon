@@ -1,159 +1,79 @@
-:root {
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
+/* ==============================================
+   FullCalendar global styling + event theming
+   Faithful to original loka.io look + user tweaks
+   ============================================== */
 
-    color-scheme: light dark;
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #242424;
-
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+/* Overall container - lighter background */
+.fc {
+    background-color: #fafafa; /* Very light gray - much softer */
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    border: 1px solid #e0e0e0; /* Softer border */
+    border-radius: 4px;
+    overflow: hidden;
 }
 
-a {
-    font-weight: 500;
-    color: #646cff;
-    text-decoration: inherit;
-}
-a:hover {
-    color: #535bf2;
-}
-
-body {
-    margin: 0;
-    display: flex;
-    place-items: center;
-    min-width: 320px;
-    min-height: 100vh;
+/* Column headers (dates) - no underline, smaller/lighter */
+.fc .fc-col-header-cell-cushion {
+    color: #555;
+    font-weight: 500; /* Slightly lighter */
+    padding: 4px 4px; /* Less padding = smaller feel */
+    background: #ffffff; /* Pure white for contrast */
+    border-bottom: none !important; /* Remove underline */
 }
 
-h1 {
-    font-size: 3.2em;
-    line-height: 1.1;
+/* Row headers (time slots) */
+.fc .fc-timegrid-slot-label-cushion {
+    color: #777;
+    padding: 2px 4px;
 }
 
-button {
-    border-radius: 8px;
-    border: 1px solid transparent;
-    padding: 0.6em 1.2em;
-    font-size: 1em;
-    font-weight: 500;
-    font-family: inherit;
-    background-color: #1a1a1a;
-    cursor: pointer;
-    transition: border-color 0.25s;
-}
-button:hover {
-    border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-    outline: 4px auto -webkit-focus-ring-color;
+/* Current day highlight - subtle */
+.fc .fc-daygrid-day.fc-day-today,
+.fc .fc-timegrid-col.fc-day-today {
+    background-color: rgba(33, 150, 243, 0.06); /* Even softer blue tint */
 }
 
-@media (prefers-color-scheme: light) {
-    :root {
-        color: #213547;
-        background-color: #ffffff;
-    }
-    a:hover {
-        color: #747bff;
-    }
-    button {
-        background-color: #f9f9f9;
-    }
+/* Weekend background */
+.fc .fc-daygrid-day.fc-day-sat,
+.fc .fc-daygrid-day.fc-day-sun {
+    background-color: rgba(0, 0, 0, 0.015); /* Very subtle shading */
 }
 
-/*
- * Events colors
- */
-
-/* Event colors adapted directly from original loka.io HTML bundle */
-
-/* Bright Blue */
-.fc-event-blue {
-    background: linear-gradient(to bottom, #4fc3f7 0%, #2196f3 100%);
-    border: 1px solid #1976d2;
-    color: #ffffff;
+/* Grid lines - softer */
+.fc .fc-timegrid-slot {
+    border-bottom: 1px solid #f0f0f0;
 }
 
-/* Green */
-.fc-event-green {
-    background: linear-gradient(to bottom, #81c784 0%, #4caf50 100%);
-    border: 1px solid #388e3c;
-    color: #ffffff;
-}
-
-/* Purple */
-.fc-event-purple {
-    background: linear-gradient(to bottom, #ab47bc 0%, #9c27b0 100%);
-    border: 1px solid #7b1fa2;
-    color: #ffffff;
-}
-
-/* Red */
-.fc-event-red {
-    background: linear-gradient(to bottom, #e57373 0%, #f44336 100%);
-    border: 1px solid #d32f2f;
-    color: #ffffff;
-}
-
-/* Yellow */
-.fc-event-yellow {
-    background: linear-gradient(to bottom, #fff176 0%, #ffeb3b 100%);
-    border: 1px solid #fbc02d;
-    color: #333333; /* black-ish for contrast */
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-}
-
-/* Dark Blue */
-.fc-event-dark-blue {
-    background: linear-gradient(to bottom, #42a5f5 0%, #1565c0 100%);
-    border: 1px solid #0d47a1;
-    color: #ffffff;
-}
-
-/* Dark Green */
-.fc-event-dark-green {
-    background: linear-gradient(to bottom, #66bb6a 0%, #2e7d32 100%);
-    border: 1px solid #1b5e20;
-    color: #ffffff;
-}
-
-/* Dark Purple */
-.fc-event-dark-purple {
-    background: linear-gradient(to bottom, #9575cd 0%, #6a1b9a 100%);
-    border: 1px solid #4a148c;
-    color: #ffffff;
-}
-
-/* Default / "-" (neutral gray) */
-.fc-event-,
-.fc-event-default {
-    background: linear-gradient(to bottom, #eeeeee 0%, #e0e0e0 100%);
-    border: 1px solid #bdbdbd;
-    color: #333333;
-}
-
-/* Optional: subtle hover effect for better interactivity */
-.fc-event:hover {
-    opacity: 0.92;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    transform: scale(1.02);
+/* Event container */
+.fc-event {
+    border-radius: 3px;
+    border-width: 1px;
+    padding: 2px 5px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.15s ease;
 }
 
-/* Make sure resize handles are visible (cursor + dot) */
+/* Hover effect */
+.fc-event:hover {
+    opacity: 0.92;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+/* Resize handles - more visible */
 .fc-event-resizer {
-    background: rgba(255, 255, 255, 0.7) !important;
-    width: 7px !important;
-    height: 7px !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    width: 10px !important;
+    height: 10px !important;
     border-radius: 50% !important;
     border: 1px solid #fff !important;
     cursor: ns-resize !important;
+    opacity: 0.7;
 }
 
 .fc-event-resizable:hover .fc-event-resizer {
@@ -161,7 +81,60 @@ button:focus-visible {
     opacity: 1 !important;
 }
 
-/* Ensure handles are visible in time-grid */
-.fc-timegrid-event .fc-event-resizer {
-    display: block !important;
+/* Exact event colors + linear gradients from original loka.io */
+.fc-event-blue {
+    background: linear-gradient(to bottom, #6db3f2 0%, #5c9bd1 100%);
+    border-color: #3279b8;
+    color: #ffffff;
+}
+
+.fc-event-green {
+    background: linear-gradient(to bottom, #8ed78e 0%, #7aba7b 100%);
+    border-color: #4a8c4b;
+    color: #ffffff;
+}
+
+.fc-event-purple {
+    background: linear-gradient(to bottom, #b875d0 0%, #a569bd 100%);
+    border-color: #7b3fa0;
+    color: #ffffff;
+}
+
+.fc-event-red {
+    background: linear-gradient(to bottom, #f08080 0%, #e57373 100%);
+    border-color: #c62828;
+    color: #ffffff;
+}
+
+.fc-event-yellow {
+    background: linear-gradient(to bottom, #fff59d 0%, #ffeb3b 100%);
+    border-color: #fbc02d;
+    color: #333333;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.fc-event-dark-blue {
+    background: linear-gradient(to bottom, #4d8bf5 0%, #3f51b5 100%);
+    border-color: #283593;
+    color: #ffffff;
+}
+
+.fc-event-dark-green {
+    background: linear-gradient(to bottom, #4caf50 0%, #388e3c 100%);
+    border-color: #1b5e20;
+    color: #ffffff;
+}
+
+.fc-event-dark-purple {
+    background: linear-gradient(to bottom, #9575cd 0%, #7e57c2 100%);
+    border-color: #512da8;
+    color: #ffffff;
+}
+
+/* Default / fallback for "-" or unknown */
+.fc-event-,
+.fc-event-default {
+    background: linear-gradient(to bottom, #f0f0f0 0%, #e0e0e0 100%);
+    border-color: #bdbdbd;
+    color: #444444;
 }
