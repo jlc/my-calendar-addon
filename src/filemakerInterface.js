@@ -254,7 +254,9 @@ const fetchRecords = async (findRequest) => {
     // From your $result: it's {response: {dataInfo, data: [...]}, messages: [...]}
     return response?.response || response || { data: [] };
   } catch (err) {
-    console.error("[fetchRecords] Failed:", err);
+    if (err.code !== "401") {
+      console.error("[fetchRecords] Failed:", err);
+    }
     return { data: [] };
   }
 };
@@ -429,7 +431,7 @@ const mapRecordToEvent = (fmRecord) => {
 //NEW explicit handle of MM/DD/YYYY
 const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
   if (!dateStr) return null;
-  console.log("[Parse] Input:", dateStr, timeStr);
+  //console.log("[Parse] Input:", dateStr, timeStr);
 
   const [month, day, year] = dateStr
     .split("/")
@@ -443,7 +445,7 @@ const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
   const iso = `${year}-${month}-${day}T${h}:${m}:${s}`;
   const dt = new Date(iso);
   if (isNaN(dt.getTime())) {
-    console.warn("[Parse] Invalid ISO:", iso);
+    console.warn("[parseFMDateTime] Invalid ISO:", iso);
     return null;
   }
   return dt.toISOString();
