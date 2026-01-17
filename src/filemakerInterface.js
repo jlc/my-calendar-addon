@@ -224,30 +224,21 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   });
 };
 
-const sendEvent = (eventType, payload = {}) => {
-  const fetchId = crypto.randomUUID();
+const sendEvent = (dummyType, payload = {}) => {
+  // dummyType not used anymore
+  let paramJson = JSON.stringify(payload);
 
-  const fullParam = {
-    Data: { ...payload, EventType: eventType },
-    Meta: {
-      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
-      FetchId: fetchId,
-      Callback: "Fmw_Callback", // kept for consistency/future-proofing
-    },
-  };
+  // Remove outer quotes if quirk adds them (keep this safety)
+  if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
+    paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
+  }
 
-  const paramJson = JSON.stringify(fullParam);
+  console.log("[sendEvent] CLEAN JSON:", paramJson);
+  console.log("[sendEvent] First 50 chars:", paramJson.substring(0, 50));
 
   if (window.FileMaker?.PerformScript) {
     window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
-    console.log(
-      `[sendEvent] Fired notification: ${eventType} (FetchId: ${fetchId})`,
-    );
-  } else {
-    console.warn("[sendEvent] FileMaker.PerformScript not available");
   }
-
-  // No return → no promise → no timeout → no rejection
 };
 
 const fetchRecords = async (findRequest) => {
@@ -482,8 +473,84 @@ const setupWindowFunctions = (calendarRef) => {
 // ── Event notify ────────────────────────────────────────────────────────────
 const notifyEventClick = (event) => {
   console.log("[notifyEventClick] Event clicked:", event.id);
-  sendEvent("EventClick", { EventId: event.id });
+
+  const fetchId = crypto.randomUUID();
+
+  const fullParam = {
+    Data: {
+      id: event.id.toString(),
+      eventDisplayLayout: getConfigField(
+        "EventDetailLayout",
+        "Visit Event Display",
+      ),
+      idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+      editable: event.editable ? 1 : 0,
+    },
+    Meta: {
+      EventType: "EventClick", // Moved to Meta to match the script's extraction
+      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
+      FetchId: fetchId,
+      Callback: "Fmw_Callback",
+    },
+  };
+
+  const paramJson = JSON.stringify(fullParam);
+
+  if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
+    console.log("[notifyEventClick] Stripped outer quotes");
+    paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
+  }
+
+  console.log(
+    "[notifyEventClick] Sending wrapped param:",
+    paramJson.substring(0, 100) + "...",
+  );
+
+  if (window.FileMaker?.PerformScript) {
+    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
+  } else {
+    console.warn("[notifyEventClick] FileMaker.PerformScript not available");
+  }
 };
+
+/*
+const notifyEventClick = (event) => {
+  console.log("[notifyEventClick] Event clicked:", event.id);
+
+  const fetchId = crypto.randomUUID(); // Generate unique ID (not really used here, but keeps consistency)
+
+  const fullParam = {
+    Data: {
+      EventType: "EventClick",
+      id: event.id.toString(),
+      eventDisplayLayout: getConfigField(
+        "EventDetailLayout",
+        "Visit Event Display",
+      ),
+      idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+      editable: event.editable ? 1 : 0,
+    },
+    Meta: {
+      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
+      FetchId: fetchId,
+      Callback: "Fmw_Callback", // Optional, but harmless
+    },
+  };
+
+  const paramJson = JSON.stringify(fullParam);
+
+  console.log(
+    "[notifyEventClick] Sending wrapped param:",
+    paramJson.substring(0, 100) + "...",
+  );
+
+  if (window.FileMaker?.PerformScript) {
+    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
+  } else {
+    console.warn("[notifyEventClick] FileMaker.PerformScript not available");
+  }
+};
+*/
 
 const notifyEventDrop = (event, delta) => {
   console.log("[notifyEventDrop] Event dropped:", event.id, delta);
