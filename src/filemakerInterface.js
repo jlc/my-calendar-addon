@@ -409,8 +409,10 @@ const mapRecordToEvent = (fmRecord) => {
     fd[allDayField] === 1 ||
     (!startTimeVal.trim() && !endTimeVal.trim());
 
+  const editable = fd[editableField] === 1 || fd[editableField] === "1" || true;
+
   console.log(
-    `[mapRecordToEvent] SUCCESS: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
+    `[mapRecordToEvent] SUCCESS: ID=${id}, Editable=${editable}, Start=${start}, End=${end}, AllDay=${allDay}, Title=${title}`,
   );
 
   return {
@@ -419,7 +421,8 @@ const mapRecordToEvent = (fmRecord) => {
     start,
     end: end || undefined,
     allDay,
-    editable: fd[editableField] === "1" || fd[editableField] === 1,
+    editable: editable,
+    durationEditable: true,
     extendedProps: {
       description: fd[descriptionField] || "",
       // Add more: e.g. style: fd[styleField] ? JSON.parse(fd[styleField]) : null,
@@ -569,22 +572,37 @@ const notifyDateSelect = (info) => {
 };
 
 // Event Drop (uses "EventDropped", send new dates/times and field names)
+// Helper: Format date for FileMaker SET FIELD (DD/MM/YYYY)
+const formatFMSetDate = (isoStr) => {
+  if (!isoStr) return null;
+  const date = new Date(isoStr);
+  if (isNaN(date.getTime())) {
+    console.warn("[formatFMSetDate] Invalid date:", isoStr);
+    return null;
+  }
+  const day = date.getDate().toString().padStart(2, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+// Helper: Clean time to HH:mm:ss only (remove offset)
+const cleanTime = (timeStr) => {
+  if (!timeStr) return "00:00:00";
+  return timeStr.split("+")[0].split("Z")[0]; // removes +01:00 or Z
+};
+
 const notifyEventDrop = (info) => {
   if (!info?.event?.id) {
-    console.error("[notifyEventDrop] Invalid drop info - no event ID");
+    console.error("[notifyEventDrop] No event ID");
     return;
   }
 
-  console.log("[notifyEventDrop] Event dropped:", info.event.id, info.delta);
+  console.log("[notifyEventDrop] Event dropped:", info.event.id);
 
   const dataPayload = {
     id: info.event.id.toString(),
-    newStartDate: info.event.startStr.split("T")[0],
-    newStartTime: info.event.startStr.split("T")[1] || "00:00:00",
-    newEndDate: info.event.endStr ? info.event.endStr.split("T")[0] : null,
-    newEndTime: info.event.endStr
-      ? info.event.endStr.split("T")[1] || "00:00:00"
-      : null,
+    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
     startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
     startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
     endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
@@ -593,97 +611,53 @@ const notifyEventDrop = (info) => {
       "EventDetailLayout",
       "Visit Event Display",
     ),
-    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+
+    // Dates in DD/MM/YYYY for Set Field
+    newStartDate: formatFMSetDate(info.event.startStr),
+    newStartTime: cleanTime(info.event.startStr.split("T")[1] || "00:00:00"),
+    newEndDate: info.event.endStr ? formatFMSetDate(info.event.endStr) : null,
+    newEndTime: info.event.endStr
+      ? cleanTime(info.event.endStr.split("T")[1] || "00:00:00")
+      : null,
   };
 
   sendWrappedEvent("EventDropped", dataPayload);
 };
 
 // Event Resize (uses "EventResized", send new end date/time and field names)
+
 const notifyEventResize = (info) => {
+  // Safety check
+  if (!info?.event?.id || !info?.event?.end) {
+    console.warn("[notifyEventResize] Invalid resize info - missing ID or end");
+    return;
+  }
+
   console.log("[notifyEventResize] Event resized:", info.event.id);
 
   const dataPayload = {
     id: info.event.id.toString(),
-    newEndDate: info.event.endStr.split("T")[0],
-    newEndTime: info.event.endStr.split("T")[1] || "00:00:00",
+    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+    startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
+    startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
     endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
     endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
     eventDisplayLayout: getConfigField(
       "EventDetailLayout",
       "Visit Event Display",
     ),
-    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+
+    // New END values after resize (date in DD/MM/YYYY, time cleaned)
+    newEndDate: formatFMSetDate(info.event.endStr),
+    newEndTime: cleanTime(info.event.endStr.split("T")[1] || "00:00:00"),
+
+    // Optional: also send current start (can be useful for validation or logging)
+    newStartDate: formatFMSetDate(info.event.startStr),
+    newStartTime: cleanTime(info.event.startStr.split("T")[1] || "00:00:00"),
   };
 
   sendWrappedEvent("EventResized", dataPayload);
 };
-
-/*
-const notifyEventClick = (event) => {
-  console.log("[notifyEventClick] Event clicked:", event.id);
-
-  const fetchId = crypto.randomUUID();
-
-  const fullParam = {
-    Data: {
-      id: event.id.toString(),
-      eventDisplayLayout: getConfigField(
-        "EventDetailLayout",
-        "Visit Event Display",
-      ),
-      idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
-      editable: event.editable ? 1 : 0,
-    },
-    Meta: {
-      EventType: "EventClick", // Moved to Meta to match the script's extraction
-      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
-      FetchId: fetchId,
-      Callback: "Fmw_Callback",
-    },
-  };
-
-  const paramJson = JSON.stringify(fullParam);
-
-  if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
-    console.log("[notifyEventClick] Stripped outer quotes");
-    paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
-  }
-
-  console.log(
-    "[notifyEventClick] Sending wrapped param:",
-    paramJson.substring(0, 100) + "...",
-  );
-
-  if (window.FileMaker?.PerformScript) {
-    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
-  } else {
-    console.warn("[notifyEventClick] FileMaker.PerformScript not available");
-  }
-};
-
-//
-
-const notifyEventDrop = (event, delta) => {
-  console.log("[notifyEventDrop] Event dropped:", event.id, delta);
-  sendEvent("EventDrop", { EventId: event.id, Delta: delta });
-};
-
-const notifyEventResize = (event) => {
-  console.log("[notifyEventResize] Event resized:", event.id);
-  sendEvent("EventResize", { EventId: event.id });
-};
-
-const notifyDateSelect = (info) => {
-  console.log("[notifyDateSelect] Date selected:", info.startStr, info.endStr);
-  sendEvent("DateSelect", { Start: info.startStr, End: info.endStr });
-};
-
-const notifyViewChange = (view) => {
-  console.log("[notifyViewChange] View changed:", view.type);
-  sendEvent("ViewChange", { View: view.type });
-};
-*/
 
 export {
   fmwInit,

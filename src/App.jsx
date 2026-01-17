@@ -232,13 +232,15 @@ function App() {
           }*/
         }
         editable={true}
+        eventDurationEditable={true}
+        eventResizableFromStart={true}
         selectable={true}
         selectMirror={true}
         dayMaxEvents={true}
         events={debouncedFetch}
         eventClick={(info) => notifyEventClick(info.event)}
         eventDrop={(info) => notifyEventDrop(info)}
-        eventResize={(info) => notifyEventResize(info.event)}
+        eventResize={(info) => notifyEventResize(info)}
         select={(info) => notifyDateSelect(info)}
         datesSet={(info) => notifyViewChange(info.view)}
         // Optional but recommended enhancements:
