@@ -589,6 +589,9 @@ const notifyDateSelect = (info) => {
   };
 
   sendWrappedEvent("NewEventFromSelected", dataPayload);
+
+  // Optional: force immediate refetch to see the change faster
+  window.Calendar_Refresh?.();
 };
 
 // Event Drop (uses "EventDropped", send new dates/times and field names)
