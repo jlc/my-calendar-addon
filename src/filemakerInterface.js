@@ -137,39 +137,46 @@ const pendingCallbacks = new Map();
 
 // Global callback handler – make it very verbose for now
 window.Fmw_Callback = function (jsonString) {
-  console.log("[Fmw_Callback] Received raw string from FM:", jsonString);
+  //console.log("[Fmw_Callback] Raw:", jsonString);
 
   try {
     const data = JSON.parse(jsonString);
-    console.log("[Fmw_Callback] Parsed data:", data);
+    console.log("[Fmw_Callback] Parsed:", data);
 
-    const fetchId = data?.FetchId || data?.fetchId || data?.Meta?.FetchId;
-    if (!fetchId) {
-      console.error("[Fmw_Callback] No FetchId found in payload");
+    // Try to find FetchId in multiple possible locations (robust)
+    let fetchId =
+      data?.Meta?.FetchId ||
+      data?.fetchId ||
+      data?.FetchId ||
+      data?.Meta?.fetchId;
+
+    // If not found and there's exactly one pending request → assume it's for that one
+    if (!fetchId && pendingCallbacks.size === 1) {
+      fetchId = Array.from(pendingCallbacks.keys())[0];
+      //console.log(
+      //  "[Fmw_Callback] Fallback: single pending request → using",
+      //  fetchId,
+      //);
+    } else if (!fetchId) {
+      console.warn(
+        "[Fmw_Callback] No FetchId and multiple/no pending → ignoring",
+      );
       return;
     }
 
-    console.log("[Fmw_Callback] Looking for promise with FetchId:", fetchId);
-    console.log("Current pending keys:", Array.from(pendingCallbacks.keys()));
-
     if (pendingCallbacks.has(fetchId)) {
       const { resolve, reject } = pendingCallbacks.get(fetchId);
-      console.log("[Fmw_Callback] Resolving promise for FetchId:", fetchId);
-
-      if (data.error || data.code !== "0") {
-        reject(new Error(data.error || "FM error: " + data.message));
+      if (data.messages?.some((m) => m.code !== "0" && m.code !== "OK")) {
+        reject(new Error(`FM error: ${JSON.stringify(data.messages)}`));
       } else {
-        resolve(data); // or data.response if you need to unwrap
+        resolve(data);
       }
       pendingCallbacks.delete(fetchId);
     } else {
-      console.warn(
-        "[Fmw_Callback] No pending promise found for FetchId:",
-        fetchId,
-      );
+      console.warn("[Fmw_Callback] No pending promise for FetchId:", fetchId);
     }
   } catch (err) {
-    console.error("[Fmw_Callback] Parse or handling error:", err);
+    console.error("[Fmw_Callback] Parse failed:", err);
   }
 };
 
@@ -178,19 +185,19 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random()
 
   const fullParam = {
-    ...data,
+    Data: data,
     Meta: {
       AddonUUID:
         window.__initialProps__?.AddonUUID ||
         "F84BA49F-913B-4818-9C3D-5CDAEC10CA6D",
       FetchId: fetchId,
       Callback: "Fmw_Callback",
+      Config: config,
       ...metaOverrides,
     },
   };
 
   const paramJson = JSON.stringify(fullParam);
-  console.log("[DEBUG] Final JSON string sent to FM script:", paramJson);
   console.log(
     `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
     fetchId,
@@ -217,22 +224,38 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   });
 };
 
-// ── High-level API ──────────────────────────────────────────────────────────
 const sendEvent = (eventType, payload = {}) => {
-  return sendToFileMaker(
-    "FCCalendarEvents",
-    { ...payload, EventType: eventType },
-    {},
-    false,
-  );
+  const fetchId = crypto.randomUUID();
+
+  const fullParam = {
+    Data: { ...payload, EventType: eventType },
+    Meta: {
+      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
+      FetchId: fetchId,
+      Callback: "Fmw_Callback", // kept for consistency/future-proofing
+    },
+  };
+
+  const paramJson = JSON.stringify(fullParam);
+
+  if (window.FileMaker?.PerformScript) {
+    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
+    console.log(
+      `[sendEvent] Fired notification: ${eventType} (FetchId: ${fetchId})`,
+    );
+  } else {
+    console.warn("[sendEvent] FileMaker.PerformScript not available");
+  }
+
+  // No return → no promise → no timeout → no rejection
 };
 
 const fetchRecords = async (findRequest) => {
   try {
-    console.log(
+    /*console.log(
       "FULL FIND REQUEST BEING SENT:",
       JSON.stringify(findRequest, null, 2),
-    );
+    );*/
     const response = await sendToFileMaker("FCCalendarFind", findRequest);
     console.log("[fetchRecords] Full callback response:", response);
 
@@ -274,7 +297,7 @@ const fetchEventsInRange = async (startStr, endStr) => {
 
   const queryConditions = {
     [startField]: `>=${startFormatted}`,
-    [endField]: `<=${endFormatted}`, // try <= if events on end date are missing
+    [endField]: `<${endFormatted}`, // try <= if events on end date are missing
     // Remove hardcoded filter unless needed for your test data
     // DoctorAccountName: "dev",
   };
@@ -291,7 +314,6 @@ const fetchEventsInRange = async (startStr, endStr) => {
   console.log("[DEBUG] Using layout:", safeLayout);
 
   const findRequest = {
-    action: "read",
     layouts: safeLayout,
     query: [queryConditions],
     limit: 3000,
@@ -326,90 +348,114 @@ const fetchEventsInRange = async (startStr, endStr) => {
 
 // ── Event transformation ────────────────────────────────────────────────────
 const mapRecordToEvent = (fmRecord) => {
-  const fd = fmRecord.fieldData || {}; // ← THIS is the key
+  const fd = fmRecord.fieldData || {};
 
-  // Dynamically resolve field names from config
-  const idField = getConfigField("EventIdField", "Id");
-  const titleField = getConfigField("EventTitleField", "Title");
-  const startDateField = getConfigField("EventStartDateField", "StartDate");
-  const startTimeField = getConfigField("EventStartTimeField", "StartTime");
-  const endDateField = getConfigField("EventEndDateField", "EndDate");
-  const endTimeField = getConfigField("EventEndTimeField", "EndTime");
-  const allDayField = getConfigField("AllDayField", "AllDay");
-  const descriptionField = getConfigField(
-    "EventDescriptionField",
-    "Description",
-  );
-  const editableField = getConfigField("EditableField", "Editable");
-  // Add more as needed, e.g., colorField = getConfigField("EventColorField", "Color");
+  //console.log("[DEBUG] Available fieldData keys:", Object.keys(fd));
+
+  // Align exactly with your config keys (from screenshot)
+  const idField = resolveFieldName("EventPrimaryKeyField") || "Id";
+  const titleField = resolveFieldName("EventTitleField") || "Title";
+  const startDateField = resolveFieldName("EventStartDateField") || "StartDate";
+  const startTimeField = resolveFieldName("EventStartTimeField") || "StartTime";
+  const endDateField = resolveFieldName("EventEndDateField") || "EndDate";
+  const endTimeField = resolveFieldName("EventEndTimeField") || "EndTime";
+  const allDayField = resolveFieldName("EventAllDayField") || "AllDay";
+  const editableField = resolveFieldName("EventEditableField") || "Editable";
+  const descriptionField =
+    resolveFieldName("EventDescriptionField") || "Description";
+  // Add more as needed, e.g. styleField = resolveFieldName("EventStyleField") || "Style";
+
+  console.log("[DEBUG] Resolved field names:", {
+    id: idField,
+    title: titleField,
+    startDate: startDateField,
+    startTime: startTimeField,
+    endDate: endDateField,
+    endTime: endTimeField,
+    allDay: allDayField,
+    editable: editableField,
+    description: descriptionField,
+  });
 
   const id = fd[idField];
   if (!id) {
-    console.warn("Missing Id:", fd);
+    console.warn("[Map] Missing ID - field not found:", idField, "in", fd);
     return null;
   }
 
   const title = fd[titleField] || "Untitled";
 
-  const start = parseFMDateTime(
-    fd[startDateField],
-    fd[startTimeField] || "00:00:00",
-  );
-  let end = parseFMDateTime(fd[endDateField], fd[endTimeField] || "00:00:00");
+  const startDateVal = fd[startDateField];
+  const startTimeVal = fd[startTimeField] || "00:00:00";
+  /*console.log("[DEBUG] Start raw values:", {
+    date: startDateVal,
+    time: startTimeVal,
+  });*/
 
-  const allDay =
-    fd[allDayField] === 1 ||
-    fd[allDayField] === "1" ||
-    (!fd[startTimeField] && !fd[endTimeField]);
-
+  const start = parseFMDateTime(startDateVal, startTimeVal);
   if (!start) {
-    console.warn(
-      "Invalid start date/time:",
-      fd[startDateField],
-      fd[startTimeField],
-    );
+    console.warn("[Map] Invalid start date/time");
     return null;
   }
 
-  // For all-day/multi-day: if no end, default to start +1 day (FullCalendar expects end-exclusive)
-  if (!end && allDay) {
-    end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    end = end.toISOString();
+  let end;
+  const endDateVal = fd[endDateField];
+  const endTimeVal = fd[endTimeField] || "00:00:00";
+  if (endDateVal) {
+    end = parseFMDateTime(endDateVal, endTimeVal);
+  } else {
+    // Fallback: infer end as start +1 hour if missing
+    const fallbackEnd = new Date(start);
+    fallbackEnd.setHours(fallbackEnd.getHours() + 1);
+    end = fallbackEnd.toISOString();
+    console.log("[DEBUG] Inferred end:", end);
   }
 
+  const allDay =
+    fd[allDayField] === "1" ||
+    fd[allDayField] === 1 ||
+    (!startTimeVal.trim() && !endTimeVal.trim());
+
   console.log(
-    `[mapRecordToEvent] Mapped event: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
+    `[mapRecordToEvent] SUCCESS: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
   );
 
   return {
-    id: id, // UUID is fine as string
-    title: title,
-    start: start, // must be ISO string or Date
-    end: end || undefined, // optional for all-day
-    allDay: allDay,
-    editable: fd[editableField] === 1 || fd[editableField] === "1",
+    id: String(id), // Ensure string for FullCalendar
+    title,
+    start,
+    end: end || undefined,
+    allDay,
+    editable: fd[editableField] === "1" || fd[editableField] === 1,
     extendedProps: {
       description: fd[descriptionField] || "",
-      // style: fd.Style || "", // if JSON, parse later
-      // Add more: VisitStatus, Consultants::FirstAndLastNames, etc.
+      // Add more: e.g. style: fd[styleField] ? JSON.parse(fd[styleField]) : null,
     },
   };
 };
-// Helper: Parse MM/DD/YYYY + HH:mm:ss → FullCalendar ISO string
-const parseFMDateTime = (dateStr, timeStr) => {
-  if (!dateStr) return null;
 
-  // Input: "01/15/2026" (MM/DD/YYYY)
-  const [month, day, year] = dateStr.split("/").map((p) => p.trim());
+// Helper: Parse MM/DD/YYYY + HH:mm:ss → FullCalendar ISO string
+//NEW explicit handle of MM/DD/YYYY
+const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
+  if (!dateStr) return null;
+  console.log("[Parse] Input:", dateStr, timeStr);
+
+  const [month, day, year] = dateStr
+    .split("/")
+    .map((p) => p.trim().padStart(2, "0"));
   if (!month || !day || !year) return null;
 
   const [h = "00", m = "00", s = "00"] = timeStr
-    ? timeStr.split(":").map((p) => p.trim().padStart(2, "0"))
-    : ["00", "00", "00"];
+    .split(":")
+    .map((p) => p.trim().padStart(2, "0"));
 
-  // Output ISO for FullCalendar
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${h}:${m}:${s}`;
+  const iso = `${year}-${month}-${day}T${h}:${m}:${s}`;
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) {
+    console.warn("[Parse] Invalid ISO:", iso);
+    return null;
+  }
+  return dt.toISOString();
 };
 
 // ── Calendar controls ───────────────────────────────────────────────────────
