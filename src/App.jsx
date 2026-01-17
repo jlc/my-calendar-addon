@@ -210,7 +210,7 @@ function App() {
   }
 
   return (
-    <div style={{ height: "100vh", width: "100vw" }}>
+    <div style={{ height: "98vh", width: "99vw" }}>
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}

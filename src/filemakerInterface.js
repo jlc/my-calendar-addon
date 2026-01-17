@@ -341,7 +341,7 @@ const fetchEventsInRange = async (startStr, endStr) => {
 const mapRecordToEvent = (fmRecord) => {
   const fd = fmRecord.fieldData || {};
 
-  console.log("[DEBUG] Available fieldData keys:", Object.keys(fd));
+  //console.log("[DEBUG] Available fieldData keys:", Object.keys(fd));
 
   const idField = resolveFieldName("EventPrimaryKeyField") || "Id";
   const titleField = resolveFieldName("EventTitleField") || "Title";
@@ -355,13 +355,13 @@ const mapRecordToEvent = (fmRecord) => {
     resolveFieldName("EventDescriptionField") || "Description";
   const styleField = resolveFieldName("EventStyleField") || "Style"; // ← Add this (from config)
 
-  console.log("[DEBUG] Resolved field names:", {
+  /*console.log("[DEBUG] Resolved field names:", {
     id: idField,
     title: titleField,
     startDate: startDateField,
     // ... other fields
     style: styleField,
-  });
+  });*/
 
   const id = fd[idField];
   if (!id) {
@@ -373,10 +373,10 @@ const mapRecordToEvent = (fmRecord) => {
 
   const startDateVal = fd[startDateField];
   const startTimeVal = fd[startTimeField] || "00:00:00";
-  console.log("[DEBUG] Start raw values:", {
+  /*console.log("[DEBUG] Start raw values:", {
     date: startDateVal,
     time: startTimeVal,
-  });
+  });*/
 
   const start = parseFMDateTime(startDateVal, startTimeVal);
   if (!start) {
@@ -394,7 +394,7 @@ const mapRecordToEvent = (fmRecord) => {
     end = new Date(start);
     end.setHours(end.getHours() + 1);
     end = end.toISOString();
-    console.log("[DEBUG] Inferred end:", end);
+    console.log("[DEBUG] [mapRecordToEvent] Inferred end time of event:", end);
   }
 
   const allDay =
@@ -406,12 +406,12 @@ const mapRecordToEvent = (fmRecord) => {
   const rawStyle = fd[styleField] || "-";
   const styleClass = `fc-event-${rawStyle.toLowerCase().replace(/\s+/g, "-")}`; // e.g. "Blue" → "fc-event-blue", "Dark Blue" → "fc-event-dark-blue", "-" → "fc-event-"
 
-  console.log(
+  /*console.log(
     "[mapRecordToEvent] Style mapped:",
     rawStyle,
     "→ class:",
     styleClass,
-  );
+  );*/
 
   console.log(
     `[mapRecordToEvent] SUCCESS: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
