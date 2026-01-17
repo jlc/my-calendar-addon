@@ -68,26 +68,97 @@ button:focus-visible {
 }
 
 /*
- * This is to force cursor when resizing - maybe done in js as well. TODO: why not work?
+ * Events colors
  */
 
-/* Force resize cursor on event edges */
-.fc-event-resizable {
-    cursor: ns-resize !important; /* vertical double arrow */
+/* Event colors adapted directly from original loka.io HTML bundle */
+
+/* Bright Blue */
+.fc-event-blue {
+    background: linear-gradient(to bottom, #4fc3f7 0%, #2196f3 100%);
+    border: 1px solid #1976d2;
+    color: #ffffff;
 }
 
-/* Make handles more visible (optional - small blue dots on edges) */
-.fc-event .fc-event-resizer {
-    background-color: #0066ff;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    opacity: 0.8;
+/* Green */
+.fc-event-green {
+    background: linear-gradient(to bottom, #81c784 0%, #4caf50 100%);
+    border: 1px solid #388e3c;
+    color: #ffffff;
 }
 
-/* Show cursor even on hover */
-.fc-event:hover .fc-event-resizer {
+/* Purple */
+.fc-event-purple {
+    background: linear-gradient(to bottom, #ab47bc 0%, #9c27b0 100%);
+    border: 1px solid #7b1fa2;
+    color: #ffffff;
+}
+
+/* Red */
+.fc-event-red {
+    background: linear-gradient(to bottom, #e57373 0%, #f44336 100%);
+    border: 1px solid #d32f2f;
+    color: #ffffff;
+}
+
+/* Yellow */
+.fc-event-yellow {
+    background: linear-gradient(to bottom, #fff176 0%, #ffeb3b 100%);
+    border: 1px solid #fbc02d;
+    color: #333333; /* black-ish for contrast */
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark Blue */
+.fc-event-dark-blue {
+    background: linear-gradient(to bottom, #42a5f5 0%, #1565c0 100%);
+    border: 1px solid #0d47a1;
+    color: #ffffff;
+}
+
+/* Dark Green */
+.fc-event-dark-green {
+    background: linear-gradient(to bottom, #66bb6a 0%, #2e7d32 100%);
+    border: 1px solid #1b5e20;
+    color: #ffffff;
+}
+
+/* Dark Purple */
+.fc-event-dark-purple {
+    background: linear-gradient(to bottom, #9575cd 0%, #6a1b9a 100%);
+    border: 1px solid #4a148c;
+    color: #ffffff;
+}
+
+/* Default / "-" (neutral gray) */
+.fc-event-,
+.fc-event-default {
+    background: linear-gradient(to bottom, #eeeeee 0%, #e0e0e0 100%);
+    border: 1px solid #bdbdbd;
+    color: #333333;
+}
+
+/* Optional: subtle hover effect for better interactivity */
+.fc-event:hover {
+    opacity: 0.92;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    transform: scale(1.02);
+    transition: all 0.15s ease;
+}
+
+/* Make sure resize handles are visible (cursor + dot) */
+.fc-event-resizer {
+    background: rgba(255, 255, 255, 0.7) !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    border: 1px solid #fff !important;
     cursor: ns-resize !important;
+}
+
+.fc-event-resizable:hover .fc-event-resizer {
+    background: #ffffff !important;
+    opacity: 1 !important;
 }
 
 /* Ensure handles are visible in time-grid */

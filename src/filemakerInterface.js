@@ -341,9 +341,8 @@ const fetchEventsInRange = async (startStr, endStr) => {
 const mapRecordToEvent = (fmRecord) => {
   const fd = fmRecord.fieldData || {};
 
-  //console.log("[DEBUG] Available fieldData keys:", Object.keys(fd));
+  console.log("[DEBUG] Available fieldData keys:", Object.keys(fd));
 
-  // Align exactly with your config keys (from screenshot)
   const idField = resolveFieldName("EventPrimaryKeyField") || "Id";
   const titleField = resolveFieldName("EventTitleField") || "Title";
   const startDateField = resolveFieldName("EventStartDateField") || "StartDate";
@@ -354,19 +353,15 @@ const mapRecordToEvent = (fmRecord) => {
   const editableField = resolveFieldName("EventEditableField") || "Editable";
   const descriptionField =
     resolveFieldName("EventDescriptionField") || "Description";
-  // Add more as needed, e.g. styleField = resolveFieldName("EventStyleField") || "Style";
+  const styleField = resolveFieldName("EventStyleField") || "Style"; // ← Add this (from config)
 
-  /*console.log("[DEBUG] Resolved field names:", {
+  console.log("[DEBUG] Resolved field names:", {
     id: idField,
     title: titleField,
     startDate: startDateField,
-    startTime: startTimeField,
-    endDate: endDateField,
-    endTime: endTimeField,
-    allDay: allDayField,
-    editable: editableField,
-    description: descriptionField,
-  });*/
+    // ... other fields
+    style: styleField,
+  });
 
   const id = fd[idField];
   if (!id) {
@@ -378,10 +373,10 @@ const mapRecordToEvent = (fmRecord) => {
 
   const startDateVal = fd[startDateField];
   const startTimeVal = fd[startTimeField] || "00:00:00";
-  /*console.log("[DEBUG] Start raw values:", {
+  console.log("[DEBUG] Start raw values:", {
     date: startDateVal,
     time: startTimeVal,
-  });*/
+  });
 
   const start = parseFMDateTime(startDateVal, startTimeVal);
   if (!start) {
@@ -396,9 +391,9 @@ const mapRecordToEvent = (fmRecord) => {
     end = parseFMDateTime(endDateVal, endTimeVal);
   } else {
     // Fallback: infer end as start +1 hour if missing
-    const fallbackEnd = new Date(start);
-    fallbackEnd.setHours(fallbackEnd.getHours() + 1);
-    end = fallbackEnd.toISOString();
+    end = new Date(start);
+    end.setHours(end.getHours() + 1);
+    end = end.toISOString();
     console.log("[DEBUG] Inferred end:", end);
   }
 
@@ -407,36 +402,32 @@ const mapRecordToEvent = (fmRecord) => {
     fd[allDayField] === 1 ||
     (!startTimeVal.trim() && !endTimeVal.trim());
 
-  const editable = fd[editableField] === 1 || fd[editableField] === "1" || true;
+  // Add style mapping
+  const rawStyle = fd[styleField] || "-";
+  const styleClass = `fc-event-${rawStyle.toLowerCase().replace(/\s+/g, "-")}`; // e.g. "Blue" → "fc-event-blue", "Dark Blue" → "fc-event-dark-blue", "-" → "fc-event-"
 
-  /*console.log(
-    `[mapRecordToEvent] SUCCESS: ID=${id}, Editable=${editable}, Start=${start}, End=${end}, AllDay=${allDay}, Title=${title}`,
-    );
+  console.log(
+    "[mapRecordToEvent] Style mapped:",
+    rawStyle,
+    "→ class:",
+    styleClass,
+  );
 
-  console.log("[map] Full event object sent to FullCalendar:", {
-    id,
-    title,
-    start,
-    end,
-    allDay,
-    editable: true,
-    durationEditable: true,
-    startStr: new Date(start).toISOString(),
-    endStr: end ? new Date(end).toISOString() : "missing",
-    });*/
+  console.log(
+    `[mapRecordToEvent] SUCCESS: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
+  );
 
   return {
-    id: String(id), // Ensure string for FullCalendar
+    id: String(id),
     title,
-    start,
+    start: start,
     end: end || undefined,
-    allDay,
-    editable: editable,
-    durationEditable: true,
+    allDay: allDay,
+    editable: fd[editableField] === "1" || 1,
     extendedProps: {
       description: fd[descriptionField] || "",
-      // Add more: e.g. style: fd[styleField] ? JSON.parse(fd[styleField]) : null,
     },
+    classNames: [styleClass], // ← Apply the CSS class for color/styling
   };
 };
 
