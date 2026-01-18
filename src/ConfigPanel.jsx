@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import "./ConfigPanel.css";
 
-const ConfigPanel = ({ onClose, onSave }) => {
+const ConfigPanel = ({ addonUUID, onClose, onSave }) => {
   const [activeTab, setActiveTab] = useState("general");
   const [config, setConfig] = useState({});
 
@@ -37,35 +37,115 @@ const ConfigPanel = ({ onClose, onSave }) => {
   };
 
   const handleSave = () => {
-    const updated = {};
-    Object.entries(config).forEach(([key, value]) => {
-      updated[key] = { type: getFieldType(key), value };
+    const fetchId = crypto.randomUUID();
+
+    const dataPayload = {
+      AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
+      ...config, // Spread all config fields from the form
+    };
+
+    // Ensure every field has {type, value} format
+    Object.entries(dataPayload).forEach(([key, value]) => {
+      if (typeof value !== "object" || value === null) {
+        dataPayload[key] = { type: getFieldType(key), value };
+      }
     });
 
-    let paramJson = JSON.stringify(updated);
+    // Add missing required fields from original ConfigStore (fixes color loss)
+    if (!dataPayload.EventStyleField) {
+      dataPayload.EventStyleField = {
+        type: "select",
+        value: config.EventStyleField || "VisitEvents::Style", // Preserve user input or fallback
+      };
+    }
 
-    // Step 1: Trim
+    if (!dataPayload.EventDescriptionField) {
+      dataPayload.EventDescriptionField = {
+        type: "select",
+        value: "",
+      };
+    }
+
+    // Add extra properties from original (reScanOnChange, required)
+    const requiredFields = [
+      "EventDetailLayout",
+      "EventEndDateField",
+      "EventEndTimeField",
+      "EventPrimaryKeyField",
+      "EventStartDateField",
+      "EventStartTimeField",
+      "EventTitleField",
+    ];
+    requiredFields.forEach((field) => {
+      if (dataPayload[field]) {
+        dataPayload[field] = {
+          ...dataPayload[field],
+          required: true,
+        };
+      }
+    });
+
+    if (dataPayload.EventDetailLayout) {
+      dataPayload.EventDetailLayout = {
+        ...dataPayload.EventDetailLayout,
+        reScanOnChange: true,
+      };
+    }
+
+    const fullParam = {
+      Data: dataPayload,
+      Meta: {
+        EventType: "SaveConfig", // Explicit for branch if needed
+        AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
+        FetchId: fetchId,
+        Callback: "fmwConfigChangeCallback", // Original callback name - runs in main Web Viewer
+      },
+    };
+
+    let paramJson = JSON.stringify(fullParam);
+
+    // Aggressive multi-layer stripping (up to 10 layers - necessary for FM Go card window quirk)
     paramJson = paramJson.trim();
-
-    // Step 2: Force unquote by checking if it's a quoted string
-    if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
-      console.log("[ConfigPanel] Detected quoted string - forcing unquote");
-      paramJson = paramJson.slice(1, -1); // Remove outer quotes
-      paramJson = paramJson.replace(/\\"/g, '"'); // Unescape inner
+    let strippedLayers = 0;
+    while (
+      (paramJson.startsWith('"') || paramJson.startsWith("\\")) &&
+      (paramJson.endsWith('"') || paramJson.endsWith("\\")) &&
+      strippedLayers < 10
+    ) {
+      console.log(
+        "[ConfigPanel] Stripping outer quotes layer #" + (strippedLayers + 1),
+      );
+      if (paramJson.startsWith('"')) {
+        paramJson = paramJson.slice(1, -1);
+      } else if (paramJson.startsWith("\\")) {
+        paramJson = paramJson.slice(1);
+      } else if (paramJson.startsWith('\\"')) {
+        paramJson = paramJson.slice(2, -2);
+      }
+      // Unescape inner quotes/backslashes (multiple passes)
+      paramJson = paramJson.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+      paramJson = paramJson.replace(/\\"/g, '"').replace(/\\\\/g, "\\"); // double pass
+      strippedLayers++;
     }
 
-    // Step 3: If it STILL looks quoted (multiple layers), repeat once more
+    // Final cleanup (leftover escapes)
+    paramJson = paramJson.replace(/^\\"/, "").replace(/\\"$/, "");
+    paramJson = paramJson.replace(/^"/, "").replace(/"$/, "");
+    paramJson = paramJson.replace(/^\\"/, "").replace(/\\"$/, ""); // triple safety
+
+    // Ultimate force strip if still quoted
     if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
-      console.warn("[ConfigPanel] Double quoted - second force unquote");
-      paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
+      console.warn("[ConfigPanel] FINAL FORCE STRIP after 10 layers");
+      paramJson = paramJson.slice(1, -1);
     }
 
-    // Step 4: Final safety unescape
+    // One last unescape pass (paranoid mode)
     paramJson = paramJson.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
 
+    // Debug log
     console.log(
-      "[ConfigPanel] FINAL JSON sent:",
-      paramJson.substring(0, 200) + "...",
+      "[ConfigPanel] FINAL CLEAN JSON sent to FM:",
+      paramJson.substring(0, 200) + (paramJson.length > 200 ? "..." : ""),
     );
 
     window.FileMaker?.PerformScript("FCCalendarSaveConfig", paramJson);

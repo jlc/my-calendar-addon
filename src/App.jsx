@@ -63,6 +63,13 @@ if (
   window.__initialProps__ = {};
 })();
 
+// Register the callback when the configuration has been change so we can fully reload the web page.
+window.fmwConfigChangeCallback = (result = null, fetchId = null) => {
+  console.log("[fmwConfigChangeCallback] Config saved - reloading page");
+  // Force full reload of the current page (re-injects __initialProps__ with new config)
+  window.location.reload(true); // true = force reload from server, no cache
+};
+
 /*
  * Now start the React App
  */
@@ -112,6 +119,7 @@ function App() {
   const currentEvents = useRef([]); // Ref for fallback events (replaces state)
   const [isInitialized, setIsInitialized] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [addonUUID, setAddonUUID] = useState(null); // State for addonUUID
 
   // ── 1. Initialize FileMaker interface once on mount ───────────────────────
   useEffect(() => {
@@ -136,6 +144,8 @@ function App() {
     fmwInit(() => {
       // Once FileMaker is ready and props are loaded
       setupWindowFunctions(calendarRef);
+
+      setAddonUUID(window.__initialProps__?.AddonUUID);
 
       // Check ShowConfig AFTER init (safe)
       const configMode = window.__initialProps__?.ShowConfig === true;
@@ -231,6 +241,7 @@ function App() {
     return (
       <div style={{ height: "100vh", width: "100vw", background: "#f8f9fa" }}>
         <ConfigPanel
+          addonUUID={addonUUID}
           onClose={() => {
             // Optional: tell FM to close the card window or reset ShowConfig
             //window.FileMaker?.PerformScript("SomeCloseScript", "");
