@@ -241,21 +241,53 @@ const sendEvent = (dummyType, payload = {}) => {
 
 const fetchRecords = async (findRequest) => {
   try {
-    /*console.log(
-      "FULL FIND REQUEST BEING SENT:",
-      JSON.stringify(findRequest, null, 2),
-    );*/
     const response = await sendToFileMaker("FCCalendarFind", findRequest);
     //console.log("[fetchRecords] Full callback response:", response);
 
-    // Adjust unwrapping based on what FM sends
-    // From your $result: it's {response: {dataInfo, data: [...]}, messages: [...]}
-    return response?.response || response || { data: [] };
-  } catch (err) {
-    if (err.code !== "401") {
-      console.error("[fetchRecords] Failed:", err);
+    const result = response?.response || response || {};
+    const messages = Array.isArray(response?.messages) ? response.messages : [];
+
+    // Handle 401 inside try (if promise resolves with error)
+    if (messages.some((msg) => msg?.code === "401" || msg?.code === 401)) {
+      console.log(
+        "[fetchRecords] No records found (401 in messages) - returning empty array",
+      );
+      return { dataInfo: {}, data: [] };
     }
-    return { data: [] };
+
+    // Check for other error codes in messages
+    const errorMsg = messages.find(
+      (msg) => msg?.code !== "0" && msg?.code !== "401" && msg?.code !== 0,
+    );
+    if (errorMsg) {
+      console.error("[fetchRecords] FM returned non-401 error:", errorMsg);
+      return { dataInfo: {}, data: [] };
+    }
+
+    // Success case
+    return {
+      dataInfo: result.dataInfo || {},
+      data: result.data || [],
+    };
+  } catch (err) {
+    // Handle 401 inside catch (if promise rejects on 401)
+    if (
+      err?.message?.includes("401") ||
+      err?.message?.includes("No records match the request") ||
+      err?.code === "401" ||
+      err?.response?.messages?.some?.(
+        (msg) => msg?.code === "401" || msg?.code === 401,
+      )
+    ) {
+      /*console.log(
+        "[fetchRecords] No records found (401 in catch) - returning empty array",
+      );*/
+      return { dataInfo: {}, data: [] };
+    }
+
+    // Real errors (network, timeout, etc.) - log in red
+    console.error("[fetchRecords] Real failure (not 401):", err);
+    return { dataInfo: {}, data: [] };
   }
 };
 

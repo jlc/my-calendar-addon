@@ -26,12 +26,10 @@ if (
 
   // If it's ALREADY an object → we're good! (this is your current case)
   if (typeof propsValue === "object" && propsValue !== null) {
-    /*console.log(
-      "[FM Init] SUCCESS: __initialProps__ is already a parsed object",
-    );*/
-    if (propsValue.Config) {
+    console.log("[initializeFMProps] __initialProps__ already set.");
+    /*if (propsValue.Config) {
       console.log("Config keys:", Object.keys(propsValue.Config));
-    }
+    }*/
     return; // No need to parse
   }
 
