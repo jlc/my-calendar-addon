@@ -8,8 +8,9 @@ if (
   window.__initialProps__ = "__PROPS__"; // Ensure placeholder survives
 }
 
-// src/App.jsx - Place this BEFORE any imports or component definition
-
+/*
+ * Handle __PROPS__ updated by FM
+ */
 (function initializeFMProps() {
   const propsValue = window.__initialProps__;
 
@@ -62,6 +63,10 @@ if (
   window.__initialProps__ = {};
 })();
 
+/*
+ * Now start the React App
+ */
+
 import React, {
   useRef,
   useEffect,
@@ -77,6 +82,8 @@ import listPlugin from "@fullcalendar/list";
 
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
+
+import ConfigPanel from "./ConfigPanel";
 
 import {
   fmwInit,
@@ -97,10 +104,14 @@ import {
 // src/App.jsx
 // (Keep the top initialization script and imports unchanged)
 
+/*
+ * The App()
+ */
 function App() {
   const calendarRef = useRef(null);
   const currentEvents = useRef([]); // Ref for fallback events (replaces state)
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
 
   // ── 1. Initialize FileMaker interface once on mount ───────────────────────
   useEffect(() => {
@@ -125,6 +136,10 @@ function App() {
     fmwInit(() => {
       // Once FileMaker is ready and props are loaded
       setupWindowFunctions(calendarRef);
+
+      // Check ShowConfig AFTER init (safe)
+      const configMode = window.__initialProps__?.ShowConfig === true;
+      setShowConfig(configMode);
 
       // Initialize global tooltips (common in calendar add-ons)
       tippy("[data-tippy-content]", {
@@ -204,7 +219,29 @@ function App() {
           color: "#666",
         }}
       >
-        Loading calendar from FileMaker...
+        Loading...
+      </div>
+    );
+  }
+
+  // ── 4. Show Config? ─────────────────────────────────────────────────────────────
+  // Conditional rendering: Config mode vs Calendar mode
+  if (showConfig) {
+    // Config-only mode (same bundle, but only panel)
+    return (
+      <div style={{ height: "100vh", width: "100vw", background: "#f8f9fa" }}>
+        <ConfigPanel
+          onClose={() => {
+            // Optional: tell FM to close the card window or reset ShowConfig
+            //window.FileMaker?.PerformScript("SomeCloseScript", "");
+            console.log("[DEBUG] App().ShowConfig: onClose config. ");
+          }}
+          onSave={() => {
+            // Optional: refresh main calendar if needed
+            //window.FileMaker?.PerformScript("FCCalendarRefresh", "");
+            console.log("[DEBUG] App().ShowConfig: onSave config. ");
+          }}
+        />
       </div>
     );
   }
