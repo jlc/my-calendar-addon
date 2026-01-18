@@ -491,7 +491,20 @@ const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
 const setupWindowFunctions = (calendarRef) => {
   const api = () => calendarRef.current?.getApi();
 
-  window.Calendar_Refresh = () => api()?.refetchEvents();
+  window.Calendar_Refresh = () => {
+    console.log(
+      "[Calendar_Refresh] Refreshing calendar after card close/update",
+    );
+
+    // Clear lingering selection mirror (deep blue square)
+    api()?.unselect();
+
+    // Refetch events to reflect FM updates (auto end time, etc.)
+    api()?.refetchEvents();
+
+    // Optional: Force full visual refresh (safe if refetch alone doesn't clear)
+    api()?.render();
+  };
   window.Calendar_SetView = (viewName) =>
     api()?.changeView(mapViewName(viewName));
   window.Calendar_Next = () => api()?.next();
