@@ -165,14 +165,15 @@ const ConfigPanel = ({ addonUUID, onClose, onSave }) => {
     return selectFields.includes(key) ? "select" : "text";
   };
 
+  /* The return may include: <button className"close-btn" onClick={onClose}></button>
+   * But not needed since filemaker provide a close button properly handled.
+   */
+
   return (
     <div className="config-panel">
       <div className="config-content">
         <div className="config-header">
           <h2>Calendar Configuration</h2>
-          <button className="close-btn" onClick={onClose}>
-            ×
-          </button>
         </div>
 
         <div className="config-tabs">
@@ -412,9 +413,6 @@ const ConfigPanel = ({ addonUUID, onClose, onSave }) => {
         </div>
 
         <div className="config-footer">
-          <button className="btn-cancel" onClick={onClose}>
-            Cancel
-          </button>
           <button className="btn-save" onClick={handleSave}>
             Save Configuration
           </button>
