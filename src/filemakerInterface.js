@@ -585,9 +585,20 @@ const notifyEventClick = (event) => {
 const notifyViewChange = (view) => {
   console.log("[notifyViewChange] View changed:", view.type);
 
+  // Calculate calendarDate (middle of the active range)
+  const start = view.activeStart;
+  const end = view.activeEnd;
+  const calendarDate = new Date((start.getTime() + end.getTime()) / 2);
+
   const dataPayload = {
-    View: view.type, // Script stores entire Data as CurrentState
-    // Add more if needed, e.g. dates: view.startStr, view.endStr
+    type: view.type, // "timeGridWeek", etc.
+    title: view.title, // e.g. "Jan 12 – 18, 2026"
+    currentStart: view.currentStart.toISOString(),
+    currentEnd: view.currentEnd.toISOString(),
+    activeStart: view.activeStart.toISOString(),
+    activeEnd: view.activeEnd.toISOString(),
+    calendarDate: calendarDate.toISOString(), // Calculated middle date
+    currentDate: new Date().toISOString(), // Real-time current date
   };
 
   sendWrappedEvent("ViewStateChanged", dataPayload);
