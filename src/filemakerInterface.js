@@ -605,6 +605,10 @@ const notifyViewChange = (view) => {
 };
 
 // Date Select (uses "NewEventFromSelected", send start/end as Data)
+/*
+ * Version which does NOT adjust to previous events, use the default time slot of fullCalendar (30 minutes wide)
+ */
+/*
 const notifyDateSelect = (info) => {
   console.log(
     "[notifyDateSelect] Date selected:",
@@ -638,6 +642,79 @@ const notifyDateSelect = (info) => {
 
   // Optional: force immediate refetch to see the change faster
   window.Calendar_Refresh?.();
+};
+*/
+
+/* USE THE LAST EVENT END TIME to adjust the startime of the new one */
+const notifyDateSelect = (info, calendarRef) => {
+  console.log(
+    "[notifyDateSelect] Date selected:",
+    info.startStr,
+    "to",
+    info.endStr,
+  );
+
+  let adjustedStart = new Date(info.startStr);
+  let adjustedEnd = new Date(info.endStr);
+
+  const calendarApi = calendarRef?.current?.getApi();
+  if (calendarApi) {
+    const allEvents = calendarApi.getEvents();
+
+    // Find all events on the same day that end **before** the selected start
+    const sameDayEvents = allEvents.filter((event) => {
+      const sameDay =
+        event.start.toDateString() === adjustedStart.toDateString();
+      const endsBeforeStart = event.end <= adjustedStart;
+      return sameDay && endsBeforeStart;
+    });
+
+    if (sameDayEvents.length > 0) {
+      // Get the latest-ending event (immediate predecessor)
+      const previousEvent = sameDayEvents.sort((a, b) => b.end - a.end)[0];
+
+      console.log(
+        "[notifyDateSelect] Snapping new event after previous (latest end):",
+        previousEvent.end.toISOString(),
+      );
+
+      // Snap start to previous end
+      adjustedStart = new Date(previousEvent.end.getTime());
+    } else {
+      console.log(
+        "[notifyDateSelect] No previous event - using clicked slot start",
+      );
+    }
+  }
+
+  // Set 60-minute duration
+  adjustedEnd = new Date(adjustedStart.getTime() + 60 * 60 * 1000);
+
+  // Format for FM script (exact keys expected by child script)
+  const dataPayload = {
+    StartDateStr: formatFMSetDate(adjustedStart.toISOString()),
+    StartTimeStr: cleanTime(
+      adjustedStart.toISOString().split("T")[1] || "00:00:00",
+    ),
+    EndDateStr: formatFMSetDate(adjustedEnd.toISOString()),
+    EndTimeStr: cleanTime(
+      adjustedEnd.toISOString().split("T")[1] || "00:00:00",
+    ),
+
+    startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
+    startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
+    endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
+    endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
+
+    eventDisplayLayout: getConfigField(
+      "EventDetailLayout",
+      "Visit Event Display",
+    ),
+    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
+    editable: 1,
+  };
+
+  sendWrappedEvent("NewEventFromSelected", dataPayload);
 };
 
 // Event Drop (uses "EventDropped", send new dates/times and field names)

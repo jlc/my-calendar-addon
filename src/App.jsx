@@ -119,6 +119,7 @@ function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [addonUUID, setAddonUUID] = useState(null); // State for addonUUID
+  const [isCalendarReady, setIsCalendarReady] = useState(false);
 
   // ── 1. Initialize FileMaker interface once on mount ───────────────────────
   useEffect(() => {
@@ -159,6 +160,10 @@ function App() {
 
       setIsInitialized(true);
     });
+
+    if (calendarRef.current) {
+      setIsCalendarReady(true); // will call again 'dayHeaderFormat'
+    }
   }, [isInitialized]);
 
   // ── 2. Dynamic event source for FullCalendar ──────────────────────────────
@@ -276,6 +281,41 @@ function App() {
           right: "", //"dayGridMonth,timeGridWeek,timeGridDay,listWeek",
           }*/
         }
+        locale={getConfigField("Locale", "en")} // e.g. "en" or "fr"
+        timeZone={getConfigField("TimeZone", "local")}
+        dayHeaderFormat={(dateObj) => {
+          const locale = getConfigField("Locale", "en");
+
+          // Try to get real date safely
+          let realDate;
+          try {
+            realDate = dateObj.marker || dateObj.date || new Date();
+          } catch {
+            realDate = new Date();
+          }
+
+          // If not Date, fallback
+          if (!(realDate instanceof Date) || isNaN(realDate.getTime())) {
+            realDate = new Date();
+          }
+
+          const weekday = realDate.toLocaleDateString(locale, {
+            weekday: "short",
+          });
+          const day = realDate.toLocaleDateString(locale, { day: "numeric" });
+          const month = realDate.toLocaleDateString(locale, {
+            month: "numeric",
+          });
+
+          // Force Day / Month order
+          return `${weekday} ${day} / ${month}`;
+        }}
+        /*dayHeaderFormat={
+          weekday: "short", // "Monday" or "Lundi" (full name) (or: 'long')
+          day: "2-digit", // "14"
+          month: "2-digit", // "Jan" or "janv." (ex: 'short')
+          separator: " / ", // Custom separator
+        }}*/
         allDaySlot={false}
         editable={true}
         eventDurationEditable={true}
@@ -289,14 +329,21 @@ function App() {
         eventClick={(info) => notifyEventClick(info.event)}
         eventDrop={(info) => notifyEventDrop(info)}
         eventResize={(info) => notifyEventResize(info)}
-        select={(info) => notifyDateSelect(info)}
+        select={(info) => notifyDateSelect(info, calendarRef)}
         datesSet={(info) => notifyViewChange(info.view)}
         // Optional but recommended enhancements:
         height="100%"
-        locale={getConfigField("Locale", "en")}
-        timeZone={getConfigField("TimeZone", "local")}
         slotMinTime={getConfigField("DayStartTime", "08:00:00")}
         slotMaxTime={getConfigField("DayEndTime", "20:00:00")}
+        slotDuration="00:30:00" // Each slot = 15 minutes (default: "00:30:00")
+        slotLabelInterval="01:00:00" // Show time labels every 1 hour (default: "00:30:00")
+        slotLabelFormat={{
+          hour: "2-digit", // 08, 09, 20, etc.
+          minute: "2-digit", // 00, 30, etc.
+          hour12: false, // 24-hour format (no am/pm)
+        }}
+        snapDuration="00:30:00" // Snap selections to 15-minute increments // The time interval at which a dragged event will snap to the time axis.
+        // ... rest of your props
         // You can add more later: eventContent, custom eventDidMount for tooltips, etc.
         // Optional: force visual debug
         eventMinHeight={30} // Ensures events are tall enough for handles
