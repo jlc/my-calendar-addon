@@ -84,6 +84,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
+import multiMonthPlugin from "@fullcalendar/multimonth";
 
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
@@ -259,7 +260,13 @@ function App() {
     <div style={{ height: "98vh", width: "99vw" }}>
       <FullCalendar
         ref={calendarRef}
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+        plugins={[
+          dayGridPlugin,
+          timeGridPlugin,
+          interactionPlugin,
+          listPlugin,
+          multiMonthPlugin,
+        ]}
         initialView={mapViewName(getConfigField("StartingView", "Month"))}
         firstDay={getFirstDayOfWeek()}
         headerToolbar={

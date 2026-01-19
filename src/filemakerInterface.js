@@ -52,7 +52,8 @@ const mapViewName = (viewName) => {
     Month: "dayGridMonth",
     Week: "timeGridWeek",
     Day: "timeGridDay",
-    List: "listWeek", // Adjust if needed
+    List: "listWeek",
+    Year: "multiMonthYear",
   };
   return mappings[viewName] || viewName; // Fallback to raw if unknown
 };
