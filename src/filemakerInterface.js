@@ -654,52 +654,57 @@ const notifyDateSelect = (info, calendarRef) => {
     info.endStr,
   );
 
-  let adjustedStart = new Date(info.startStr);
-  let adjustedEnd = new Date(info.endStr);
+  // Use local Date objects
+  let adjustedStart = new Date(info.start);
+  let adjustedEnd = new Date(info.end);
 
   const calendarApi = calendarRef?.current?.getApi();
   if (calendarApi) {
     const allEvents = calendarApi.getEvents();
 
-    // Find all events on the same day that end **before** the selected start
-    const sameDayEvents = allEvents.filter((event) => {
+    // Filter same-day, non-all-day events that overlap the selected slot
+    const overlappingEvents = allEvents.filter((event) => {
       const sameDay =
         event.start.toDateString() === adjustedStart.toDateString();
-      const endsBeforeStart = event.end <= adjustedStart;
-      return sameDay && endsBeforeStart;
+      const overlaps = event.end > adjustedStart && event.start < adjustedEnd;
+      return sameDay && !event.allDay && overlaps;
     });
 
-    if (sameDayEvents.length > 0) {
-      // Get the latest-ending event (immediate predecessor)
-      const previousEvent = sameDayEvents.sort((a, b) => b.end - a.end)[0];
+    if (overlappingEvents.length > 0) {
+      // Get the latest-ending overlapping event
+      const previousEvent = overlappingEvents.sort((a, b) => b.end - a.end)[0];
 
       console.log(
-        "[notifyDateSelect] Snapping new event after previous (latest end):",
-        previousEvent.end.toISOString(),
+        "[notifyDateSelect] Overlapping event found, snapping start to:",
+        previousEvent.end.toLocaleString(),
       );
 
-      // Snap start to previous end
       adjustedStart = new Date(previousEvent.end.getTime());
     } else {
       console.log(
-        "[notifyDateSelect] No previous event - using clicked slot start",
+        "[notifyDateSelect] No overlapping event - using default clicked slot start",
       );
     }
   }
 
-  // Set 60-minute duration
+  // 60-minute duration
   adjustedEnd = new Date(adjustedStart.getTime() + 60 * 60 * 1000);
 
-  // Format for FM script (exact keys expected by child script)
+  // Manual, DMY date formatting (no locale risk)
+  const pad = (num) => num.toString().padStart(2, "0");
+
+  const startDateStr = `${pad(adjustedStart.getDate())}/${pad(adjustedStart.getMonth() + 1)}/${adjustedStart.getFullYear()}`;
+  const endDateStr = `${pad(adjustedEnd.getDate())}/${pad(adjustedEnd.getMonth() + 1)}/${adjustedEnd.getFullYear()}`;
+
+  // Manual 24-hour time formatting
+  const startTimeStr = `${pad(adjustedStart.getHours())}:${pad(adjustedStart.getMinutes())}:${pad(adjustedStart.getSeconds())}`;
+  const endTimeStr = `${pad(adjustedEnd.getHours())}:${pad(adjustedEnd.getMinutes())}:${pad(adjustedEnd.getSeconds())}`;
+
   const dataPayload = {
-    StartDateStr: formatFMSetDate(adjustedStart.toISOString()),
-    StartTimeStr: cleanTime(
-      adjustedStart.toISOString().split("T")[1] || "00:00:00",
-    ),
-    EndDateStr: formatFMSetDate(adjustedEnd.toISOString()),
-    EndTimeStr: cleanTime(
-      adjustedEnd.toISOString().split("T")[1] || "00:00:00",
-    ),
+    StartDateStr: startDateStr,
+    StartTimeStr: startTimeStr,
+    EndDateStr: endDateStr,
+    EndTimeStr: endTimeStr,
 
     startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
     startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
@@ -719,16 +724,39 @@ const notifyDateSelect = (info, calendarRef) => {
 
 // Event Drop (uses "EventDropped", send new dates/times and field names)
 // Helper: Format date for FileMaker SET FIELD (DD/MM/YYYY)
-const formatFMSetDate = (isoStr) => {
-  if (!isoStr) return null;
-  const date = new Date(isoStr);
+const formatFMSetDate = (dateInput) => {
+  if (!dateInput) return null;
+
+  let date;
+
+  // If it's already a Date object
+  if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+    date = dateInput;
+  } else {
+    // Try parsing as ISO first
+    date = new Date(dateInput);
+
+    // If invalid, try parsing as DD/MM/YYYY
+    if (isNaN(date.getTime())) {
+      const parts = dateInput.split("/");
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
+        const year = parseInt(parts[2], 10);
+        date = new Date(year, month, day);
+      }
+    }
+  }
+
   if (isNaN(date.getTime())) {
-    console.warn("[formatFMSetDate] Invalid date:", isoStr);
+    console.warn("[formatFMSetDate] Invalid date:", dateInput);
     return null;
   }
+
   const day = date.getDate().toString().padStart(2, "0");
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
   const year = date.getFullYear();
+
   return `${day}/${month}/${year}`;
 };
 
