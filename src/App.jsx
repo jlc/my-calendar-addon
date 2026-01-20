@@ -283,6 +283,7 @@ function App() {
         }
         locale={getConfigField("Locale", "en")} // e.g. "en" or "fr"
         timeZone={getConfigField("TimeZone", "local")}
+        /*
         dayHeaderFormat={(dateObj) => {
           const locale = getConfigField("Locale", "en");
 
@@ -310,12 +311,13 @@ function App() {
           // Force Day / Month order
           return `${weekday} ${day} / ${month}`;
         }}
-        /*dayHeaderFormat={
+        */
+        dayHeaderFormat={{
           weekday: "short", // "Monday" or "Lundi" (full name) (or: 'long')
           day: "2-digit", // "14"
           month: "2-digit", // "Jan" or "janv." (ex: 'short')
           separator: " / ", // Custom separator
-        }}*/
+        }}
         allDaySlot={false}
         editable={true}
         eventDurationEditable={true}
