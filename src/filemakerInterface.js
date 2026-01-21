@@ -1,11 +1,9 @@
-// src/filemakerInterface.js
-// Updated for exact ConfigStore.json / CurrentState.json handling (Jan 2026 version)
-// 100% compatible with existing FileMaker web viewer and scripts
+// filemakerInterface.js
 
 import { v4 as uuidv4 } from "uuid";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const DEFAULT_TIMEOUT_MS = 30000; // TODO: should be 30000
+const DEFAULT_TIMEOUT_MS = 30000;
 const CALLBACK_FUNCTION_NAME = "Fmw_Callback";
 const SESSION_STATE_KEY = "calendar.state";
 const SESSION_CONFIG_KEY = "calendar.config";
@@ -106,8 +104,9 @@ const fmwInit = (onReady = () => {}) => {
         setSessionItem(SESSION_STATE_KEY, initialState);
 
         console.log(
-          "[fmwInit] Initialized successfully - Config keys:",
-          Object.keys(config),
+          "[fmwInit] Initialized successfully - Config:",
+          //Object.keys(config),
+          config,
         );
 
         onReady();
@@ -302,28 +301,27 @@ const fetchEventsInRange = async (startStr, endStr) => {
   const bufferEnd = new Date(endDate);
   bufferEnd.setDate(bufferEnd.getDate() + 2);
 
-  // Format dates in MM/DD/YYYY (the one that worked for you)
-  const formatUSDate = (date) => {
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-    const year = date.getFullYear();
-    //return `${month}/${day}/${year}`;
-    return `${year}+${month}+${day}`;
-  };
+  const locale = getConfigField("Locale", "en");
 
-  const startFormatted = formatUSDate(bufferStart);
-  const endFormatted = formatUSDate(bufferEnd);
+  const startFormatted = bufferStart.toLocaleDateString(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 
-  // Resolve the REAL field names from ConfigStore (using getConfigField for .value unwrap)
+  const endFormatted = bufferEnd.toLocaleDateString(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
   const startField = getConfigField("EventStartDateField", "StartDate");
   const endField = getConfigField("EventEndDateField", "EndDate");
-  const eventDetailLayout = getConfigField("EventDetailLayout", "EventDetail"); // Adjust default if known
+  const eventDetailLayout = getConfigField("EventDetailLayout", "EventDetail");
 
   const queryConditions = {
     [startField]: `>=${startFormatted}`,
-    [endField]: `<${endFormatted}`, // try <= if events on end date are missing
-    // Remove hardcoded filter unless needed for your test data
-    // DoctorAccountName: "dev",
+    [endField]: `<${endFormatted}`,
   };
 
   const safeLayout = (eventDetailLayout || "").trim();
@@ -386,15 +384,7 @@ const mapRecordToEvent = (fmRecord) => {
   const editableField = resolveFieldName("EventEditableField") || "Editable";
   const descriptionField =
     resolveFieldName("EventDescriptionField") || "Description";
-  const styleField = resolveFieldName("EventStyleField") || "Style"; // ← Add this (from config)
-
-  /*console.log("[DEBUG] Resolved field names:", {
-    id: idField,
-    title: titleField,
-    startDate: startDateField,
-    // ... other fields
-    style: styleField,
-  });*/
+  const styleField = resolveFieldName("EventStyleField") || "Style";
 
   const id = fd[idField];
   if (!id) {
@@ -437,14 +427,7 @@ const mapRecordToEvent = (fmRecord) => {
 
   // Add style mapping
   const rawStyle = fd[styleField] || "-";
-  const styleClass = `fc-event-${rawStyle.toLowerCase().replace(/\s+/g, "-")}`; // e.g. "Blue" → "fc-event-blue", "Dark Blue" → "fc-event-dark-blue", "-" → "fc-event-"
-
-  /*console.log(
-    "[mapRecordToEvent] Style mapped:",
-    rawStyle,
-    "→ class:",
-    styleClass,
-  );*/
+  const styleClass = `fc-event-${rawStyle.toLowerCase().replace(/\s+/g, "-")}`;
 
   console.log(
     `[mapRecordToEvent] SUCCESS: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
@@ -464,28 +447,24 @@ const mapRecordToEvent = (fmRecord) => {
   };
 };
 
-// Helper: Parse MM/DD/YYYY + HH:mm:ss → FullCalendar ISO string
-//NEW explicit handle of MM/DD/YYYY
+// ── Parse FM Date/Time ─────────────────────────────────────────────────────
+
 const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
-  if (!dateStr) return null;
-  //console.log("[Parse] Input:", dateStr, timeStr);
+  if (!dateStr) return new Date();
 
-  const [month, day, year] = dateStr
-    .split("/")
-    .map((p) => p.trim().padStart(2, "0"));
-  if (!month || !day || !year) return null;
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return new Date();
 
-  const [h = "00", m = "00", s = "00"] = timeStr
-    .split(":")
-    .map((p) => p.trim().padStart(2, "0"));
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const year = parseInt(parts[2], 10);
 
-  const iso = `${year}-${month}-${day}T${h}:${m}:${s}`;
-  const dt = new Date(iso);
-  if (isNaN(dt.getTime())) {
-    console.warn("[parseFMDateTime] Invalid ISO:", iso);
-    return null;
-  }
-  return dt.toISOString();
+  const timeParts = timeStr.split(":");
+  const hour = parseInt(timeParts[0] || "00", 10);
+  const min = parseInt(timeParts[1] || "00", 10);
+  const sec = parseInt(timeParts[2] || "00", 10);
+
+  return new Date(year, month, day, hour, min, sec);
 };
 
 // ── Calendar controls ───────────────────────────────────────────────────────
@@ -533,11 +512,11 @@ const sendWrappedEvent = (eventType, dataPayload = {}) => {
   const fullParam = {
     Data: dataPayload,
     Meta: {
-      EventType: eventType, // Placed in Meta to match script extraction
+      EventType: eventType,
       AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
       FetchId: fetchId,
       Callback: "Fmw_Callback",
-      Config: config, // Full config, as script may use it
+      Config: config,
     },
   };
 
@@ -690,15 +669,33 @@ const notifyDateSelect = (info, calendarRef) => {
   // 60-minute duration
   adjustedEnd = new Date(adjustedStart.getTime() + 60 * 60 * 1000);
 
-  // Manual, DMY date formatting (no locale risk)
-  const pad = (num) => num.toString().padStart(2, "0");
+  const locale = getConfigField("Locale", "en");
 
-  const startDateStr = `${pad(adjustedStart.getDate())}/${pad(adjustedStart.getMonth() + 1)}/${adjustedStart.getFullYear()}`;
-  const endDateStr = `${pad(adjustedEnd.getDate())}/${pad(adjustedEnd.getMonth() + 1)}/${adjustedEnd.getFullYear()}`;
+  const startDateStr = adjustedStart.toLocaleDateString(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 
-  // Manual 24-hour time formatting
-  const startTimeStr = `${pad(adjustedStart.getHours())}:${pad(adjustedStart.getMinutes())}:${pad(adjustedStart.getSeconds())}`;
-  const endTimeStr = `${pad(adjustedEnd.getHours())}:${pad(adjustedEnd.getMinutes())}:${pad(adjustedEnd.getSeconds())}`;
+  const startTimeStr = adjustedStart.toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const endDateStr = adjustedEnd.toLocaleDateString(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const endTimeStr = adjustedEnd.toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 
   const dataPayload = {
     StartDateStr: startDateStr,
@@ -721,7 +718,7 @@ const notifyDateSelect = (info, calendarRef) => {
 
   sendWrappedEvent("NewEventFromSelected", dataPayload);
 };
-
+/*
 // Event Drop (uses "EventDropped", send new dates/times and field names)
 // Helper: Format date for FileMaker SET FIELD (DD/MM/YYYY)
 const formatFMSetDate = (dateInput) => {
@@ -774,7 +771,7 @@ const cleanTime = (timeStr) => {
   s = s.padStart(2, "0");
 
   return `${h}:${m}:${s}`;
-};
+};*/
 
 const notifyEventDrop = (info) => {
   if (!info?.event?.id) {
@@ -796,12 +793,31 @@ const notifyEventDrop = (info) => {
       "Visit Event Display",
     ),
 
-    // Dates in DD/MM/YYYY for Set Field
-    newStartDate: formatFMSetDate(info.event.startStr),
-    newStartTime: cleanTime(info.event.startStr.split("T")[1] || "00:00:00"),
-    newEndDate: info.event.endStr ? formatFMSetDate(info.event.endStr) : null,
+    newStartDate: adjustedStart.toLocaleDateString(locale, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }),
+    newStartTime: adjustedStart.toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }),
+    newEndDate: info.event.endStr
+      ? adjustedEnd.toLocaleDateString(locale, {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
+      : null,
     newEndTime: info.event.endStr
-      ? cleanTime(info.event.endStr.split("T")[1] || "00:00:00")
+      ? adjustedEnd.toLocaleTimeString(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })
       : null,
   };
 
@@ -839,11 +855,28 @@ const notifyEventResize = (info) => {
       "Visit Event Display",
     ),
 
-    // Send BOTH new start and new end (fixes start-resize reset)
-    newStartDate: formatFMSetDate(info.event.startStr),
-    newStartTime: cleanTime(info.event.startStr.split("T")[1] || "00:00:00"),
-    newEndDate: formatFMSetDate(info.event.endStr),
-    newEndTime: cleanTime(info.event.endStr.split("T")[1] || "00:00:00"),
+    newStartDate: adjustedStart.toLocaleDateString(locale, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }),
+    newStartTime: adjustedStart.toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }),
+    newEndDate: adjustedEnd.toLocaleDateString(locale, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }),
+    newEndTime: adjustedEnd.toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }),
   };
 
   sendWrappedEvent("EventResized", dataPayload);
@@ -867,3 +900,5 @@ export {
   getFirstDayOfWeek,
   resolveFieldName,
 };
+
+// ---------------------------------------------------------------------------------------

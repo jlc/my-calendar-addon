@@ -23,7 +23,7 @@ const ConfigPanel = ({ addonUUID, onClose, onSave }) => {
       EventAllDayField: initial.EventAllDayField?.value || "",
       EventEditableField: initial.EventEditableField?.value || "",
       EventDetailLayout: initial.EventDetailLayout?.value || "",
-      Locale: initial.Locale?.value || "en",
+      //Locale: initial.Locale?.value || "en",
       TimeZone: initial.TimeZone?.value || "local",
       DayStartTime: initial.DayStartTime?.value || "08:00:00",
       DayEndTime: initial.DayEndTime?.value || "20:00:00",
@@ -350,14 +350,6 @@ const ConfigPanel = ({ addonUUID, onClose, onSave }) => {
           {/* Appearance Tab */}
           {activeTab === "appearance" && (
             <div className="tab-content">
-              <div className="form-group">
-                <label>Locale</label>
-                <input
-                  type="text"
-                  value={config.Locale}
-                  onChange={(e) => handleChange("Locale", e.target.value)}
-                />
-              </div>
               <div className="form-group">
                 <label>Time Zone</label>
                 <input

@@ -26,10 +26,10 @@ if (
 
   // If it's ALREADY an object → we're good! (this is your current case)
   if (typeof propsValue === "object" && propsValue !== null) {
-    console.log("[initializeFMProps] __initialProps__ already set.");
-    /*if (propsValue.Config) {
-      console.log("Config keys:", Object.keys(propsValue.Config));
-    }*/
+    console.log(
+      "[initializeFMProps] __initialProps__ already set. Config:",
+      propsValue.Config || {},
+    );
     return; // No need to parse
   }
 
@@ -43,10 +43,9 @@ if (
 
     try {
       window.__initialProps__ = JSON.parse(cleaned);
-      console.log("[FM Init] Parsed string to object successfully");
       console.log(
-        "Config keys:",
-        Object.keys(window.__initialProps__.Config || {}),
+        "[initializeFMProps] Parsed string to object successfully. Config: ",
+        window.__initialProps__.Config || {},
       );
     } catch (err) {
       console.error("[FM Init] String parse failed:", err.message);
@@ -57,7 +56,9 @@ if (
   }
 
   // Ultimate fallback
-  console.warn("[FM Init] Unexpected type → forcing empty");
+  console.warn(
+    "[initializeFMProps] Unexpected type → forcing empty window.__initialProps__",
+  );
   window.__initialProps__ = {};
 })();
 
@@ -138,7 +139,9 @@ function App() {
       typeof window.__initialProps__ === "string" &&
       window.__initialProps__ === "__PROPS__"
     ) {
-      console.warn("[FM] Placeholder not substituted - config will be empty");
+      console.warn(
+        "[App.useEffect] Placeholder not substituted - config will be empty",
+      );
     }
 
     fmwInit(() => {
@@ -146,6 +149,22 @@ function App() {
       setupWindowFunctions(calendarRef);
 
       setAddonUUID(window.__initialProps__?.AddonUUID);
+
+      if (
+        window.__initialProps__?.Locale &&
+        window.__initialProps__.Locale.value
+      ) {
+        // Locale is passed alongside Meta, AddonUUID, .. put it into Config
+        window.__initialProps__.Config.Locale = window.__initialProps__.Locale;
+      } else {
+        console.warn(
+          "[fmwInit]: Locale has NOT been set dynamically, default to 'en'.",
+        );
+        window.__initialProps__.Config.Locale = { type: "text", value: "en" };
+      }
+
+      const locale = getConfigField("Locale", "en");
+      console.log("[fmwInit]: Locale: ", locale);
 
       // Check ShowConfig AFTER init (safe)
       const configMode = window.__initialProps__?.ShowConfig === true;
@@ -281,6 +300,7 @@ function App() {
           right: "", //"dayGridMonth,timeGridWeek,timeGridDay,listWeek",
           }*/
         }
+        // TEST: SHOULD BE en
         locale={getConfigField("Locale", "en")} // e.g. "en" or "fr"
         timeZone={getConfigField("TimeZone", "local")}
         /*
