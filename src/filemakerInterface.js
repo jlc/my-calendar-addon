@@ -449,9 +449,9 @@ const mapRecordToEvent = (fmRecord) => {
   const rawStyle = fd[styleField] || "-";
   const styleClass = `fc-event-${rawStyle.toLowerCase().replace(/\s+/g, "-")}`;
 
-  console.log(
+  /* console.log(
     `[mapRecordToEvent] SUCCESS: ID=${id}, Title=${title}, Start=${start}, End=${end}, AllDay=${allDay}`,
-  );
+  ); */
 
   return {
     id: String(id),
@@ -658,6 +658,7 @@ const notifyDateSelect = (info, calendarRef) => {
   let adjustedStart = new Date(info.start);
   let adjustedEnd = new Date(info.end);
 
+  /*
   const calendarApi = calendarRef?.current?.getApi();
   if (calendarApi) {
     const allEvents = calendarApi.getEvents();
@@ -683,6 +684,54 @@ const notifyDateSelect = (info, calendarRef) => {
     } else {
       console.log(
         "[notifyDateSelect] No overlapping event - using default clicked slot start",
+      );
+    }
+  }
+  */
+  const calendarApi = calendarRef?.current?.getApi();
+  if (calendarApi) {
+    const allEvents = calendarApi.getEvents();
+
+    console.log("[notifyDateSelect] All events on day:", allEvents.length);
+
+    // Filter same-day, non-all-day events that end before or at the slot start
+    const predecessorEvents = allEvents.filter((event) => {
+      const sameDay =
+        new Date(event.start).toDateString() === adjustedStart.toDateString();
+      const endsBeforeOrAtStart = event.end <= adjustedStart;
+      const isAllDay = event.allDay;
+
+      console.log(
+        "[notifyDateSelect] Checking event:",
+        event.id,
+        "sameDay:",
+        sameDay,
+        "endsBeforeOrAtStart:",
+        endsBeforeOrAtStart,
+        "allDay:",
+        isAllDay,
+        "event.end:",
+        event.end.toISOString(),
+        "adjustedStart:",
+        adjustedStart.toISOString(),
+      );
+
+      return sameDay && !isAllDay && endsBeforeOrAtStart;
+    });
+
+    if (predecessorEvents.length > 0) {
+      // Get the latest-ending predecessor
+      const previousEvent = predecessorEvents.sort((a, b) => b.end - a.end)[0];
+
+      console.log(
+        "[notifyDateSelect] Predecessor found, snapping start to:",
+        previousEvent.end.toLocaleString(),
+      );
+
+      adjustedStart = new Date(previousEvent.end.getTime());
+    } else {
+      console.log(
+        "[notifyDateSelect] No predecessor event - using default clicked slot start",
       );
     }
   }
@@ -736,6 +785,8 @@ const notifyDateSelect = (info, calendarRef) => {
     idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
     editable: 1,
   };
+
+  window.Calendar_Refresh?.();
 
   sendWrappedEvent("NewEventFromSelected", dataPayload);
 };
