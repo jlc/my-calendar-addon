@@ -301,19 +301,31 @@ const fetchEventsInRange = async (startStr, endStr) => {
   const bufferEnd = new Date(endDate);
   bufferEnd.setDate(bufferEnd.getDate() + 2);
 
-  const locale = getConfigField("Locale", "en");
+  // Format dates in MM/DD/YYYY for FM Execute Data API (required format for queries, regardless of locale)
+  const formatUSDate = (date) => {
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
 
+  const startFormatted = formatUSDate(bufferStart);
+  const endFormatted = formatUSDate(bufferEnd);
+
+  /* This would be the code use if FM would use the locale of the file */
+  /*
+  const locale = getConfigField("Locale", "en");
   const startFormatted = bufferStart.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-
   const endFormatted = bufferEnd.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
+  */
 
   const startField = getConfigField("EventStartDateField", "StartDate");
   const endField = getConfigField("EventEndDateField", "EndDate");
@@ -369,6 +381,7 @@ const fetchEventsInRange = async (startStr, endStr) => {
 };
 
 // ── Event transformation ────────────────────────────────────────────────────
+// Called by FM FCCalendarFind with result from FM (the records date/time use US format, not file locale)
 const mapRecordToEvent = (fmRecord) => {
   const fd = fmRecord.fieldData || {};
 
@@ -388,9 +401,16 @@ const mapRecordToEvent = (fmRecord) => {
 
   const id = fd[idField];
   if (!id) {
-    console.warn("[Map] Missing ID - field not found:", idField, "in", fd);
+    console.warn(
+      "[mapRecordToEvent] Missing ID - field not found:",
+      idField,
+      "in",
+      fd,
+    );
     return null;
   }
+
+  //console.log("[mapRecordToEvent] fd: ", fd);
 
   const title = fd[titleField] || "Untitled";
 
@@ -403,7 +423,7 @@ const mapRecordToEvent = (fmRecord) => {
 
   const start = parseFMDateTime(startDateVal, startTimeVal);
   if (!start) {
-    console.warn("[Map] Invalid start date/time");
+    console.warn("[mapRecordToEvent] Invalid start date/time");
     return null;
   }
 
@@ -452,11 +472,12 @@ const mapRecordToEvent = (fmRecord) => {
 const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
   if (!dateStr) return new Date();
 
+  // Execute Filemaker Data API returns MM/DD/YYYY
   const parts = dateStr.split("/");
   if (parts.length !== 3) return new Date();
 
-  const day = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
+  const month = parseInt(parts[0], 10) - 1; // 0-indexed
+  const day = parseInt(parts[1], 10);
   const year = parseInt(parts[2], 10);
 
   const timeParts = timeStr.split(":");
