@@ -367,8 +367,8 @@ function App() {
         snapDuration="00:30:00" // Snap selections to 15-minute increments // The time interval at which a dragged event will snap to the time axis.
         // ... rest of your props
         // You can add more later: eventContent, custom eventDidMount for tooltips, etc.
-        // Optional: force visual debug
-        eventMinHeight={30} // Ensures events are tall enough for handles
+        eventMinHeight={20} // Slightly higher than 18 → better readability
+        slotEventOverlap={false} // ← Disable visual overlap (clean stacking)
       />
     </div>
   );

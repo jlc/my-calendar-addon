@@ -654,6 +654,8 @@ const notifyDateSelect = (info, calendarRef) => {
     info.endStr,
   );
 
+  console.log("[notifyDateSelect]: info: ", info);
+
   // Use local Date objects
   let adjustedStart = new Date(info.start);
   let adjustedEnd = new Date(info.end);
