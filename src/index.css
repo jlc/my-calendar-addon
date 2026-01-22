@@ -37,7 +37,7 @@
 /* Weekend background */
 .fc .fc-daygrid-day.fc-day-sat,
 .fc .fc-daygrid-day.fc-day-sun {
-    background-color: rgba(0, 0, 0, 0.015); /* Very subtle shading */
+    background-color: rgba(0, 0, 0, 0.015); /* Very subtle shading was 0.015 */
 }
 
 /* Grid lines - softer */
@@ -49,7 +49,7 @@
 .fc-event {
     border-radius: 3px;
     border-width: 1px;
-    padding: 2px 5px;
+    padding: 1px 2px;
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -146,19 +146,19 @@
 /* Base for all timegrid events – elegant balance */
 .fc-timegrid-event {
     min-height: 20px !important; /* Short events shrink nicely, text readable */
-    padding: 2px 6px !important; /* Comfortable padding */
+    padding: 0px 2px !important; /* Comfortable padding */
     font-size: 11.5px !important; /* Slightly smaller for short events */
-    line-height: 1.2 !important;
+    line-height: 1.1 !important;
     border-radius: 4px;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     transition: all 0.15s ease;
 }
 
 /* Extra compact for very short events (< 30 min) */
 .fc-timegrid-event-short-duration {
     min-height: 18px !important;
-    padding: 1px 5px !important;
+    padding: 0px 2px !important;
     font-size: 10.5px !important;
 }
 

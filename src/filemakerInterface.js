@@ -855,6 +855,12 @@ const notifyEventDrop = (info) => {
 
   console.log("[notifyEventDrop] Event dropped:", info.event.id);
 
+  // Use local Date objects
+  let adjustedStart = info.event.start;
+  let adjustedEnd = info.event.end;
+
+  const locale = getConfigField("Locale", "en");
+
   const dataPayload = {
     id: info.event.id.toString(),
     idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
@@ -916,6 +922,12 @@ const notifyEventResize = (info) => {
     "new end:",
     info.event.endStr,
   );
+
+  // Use local Date objects
+  let adjustedStart = info.event.start;
+  let adjustedEnd = info.event.end;
+
+  const locale = getConfigField("Locale", "en");
 
   const dataPayload = {
     id: info.event.id.toString(),
