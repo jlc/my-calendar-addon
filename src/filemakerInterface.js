@@ -591,8 +591,6 @@ const notifyDateSelect = (info, calendarRef) => {
     info.endStr,
   );
 
-  console.log("[notifyDateSelect]: info: ", info);
-
   // Use local Date objects
   let adjustedStart = new Date(info.start);
   let adjustedEnd = new Date(info.end);
@@ -603,11 +601,11 @@ const notifyDateSelect = (info, calendarRef) => {
 
     console.log("[notifyDateSelect] All events on day:", allEvents.length);
 
-    // Filter same-day, non-all-day events that end before or at the slot start
-    const predecessorEvents = allEvents.filter((event) => {
+    // Filter same-day, non-all-day events that end within the clicked slot (overlap or middle end)
+    const endingInSlotEvents = allEvents.filter((event) => {
       const sameDay =
         new Date(event.start).toDateString() === adjustedStart.toDateString();
-      const endsBeforeOrAtStart = event.end <= adjustedStart;
+      const endsInSlot = event.end > adjustedStart && event.end < adjustedEnd; // Ends after slot start and before slot end
       const isAllDay = event.allDay;
 
       console.log(
@@ -615,32 +613,34 @@ const notifyDateSelect = (info, calendarRef) => {
         event.id,
         "sameDay:",
         sameDay,
-        "endsBeforeOrAtStart:",
-        endsBeforeOrAtStart,
+        "endsInSlot:",
+        endsInSlot,
         "allDay:",
         isAllDay,
         "event.end:",
         event.end.toISOString(),
         "adjustedStart:",
         adjustedStart.toISOString(),
+        "adjustedEnd:",
+        adjustedEnd.toISOString(),
       );
 
-      return sameDay && !isAllDay && endsBeforeOrAtStart;
+      return sameDay && !isAllDay && endsInSlot;
     });
 
-    if (predecessorEvents.length > 0) {
-      // Get the latest-ending predecessor
-      const previousEvent = predecessorEvents.sort((a, b) => b.end - a.end)[0];
+    if (endingInSlotEvents.length > 0) {
+      // Snap to the latest-ending event in the slot
+      const previousEvent = endingInSlotEvents.sort((a, b) => b.end - a.end)[0];
 
       console.log(
-        "[notifyDateSelect] Predecessor found, snapping start to:",
+        "[notifyDateSelect] Ending in slot found, snapping start to:",
         previousEvent.end.toLocaleString(),
       );
 
       adjustedStart = new Date(previousEvent.end.getTime());
     } else {
       console.log(
-        "[notifyDateSelect] No predecessor event - using default clicked slot start",
+        "[notifyDateSelect] No event ending in slot - using slot start",
       );
     }
   }
