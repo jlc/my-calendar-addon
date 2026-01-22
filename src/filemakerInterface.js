@@ -312,21 +312,6 @@ const fetchEventsInRange = async (startStr, endStr) => {
   const startFormatted = formatUSDate(bufferStart);
   const endFormatted = formatUSDate(bufferEnd);
 
-  /* This would be the code use if FM would use the locale of the file */
-  /*
-  const locale = getConfigField("Locale", "en");
-  const startFormatted = bufferStart.toLocaleDateString(locale, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  const endFormatted = bufferEnd.toLocaleDateString(locale, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  */
-
   const startField = getConfigField("EventStartDateField", "StartDate");
   const endField = getConfigField("EventEndDateField", "EndDate");
   const eventDetailLayout = getConfigField("EventDetailLayout", "EventDetail");
@@ -352,11 +337,6 @@ const fetchEventsInRange = async (startStr, endStr) => {
     query: [queryConditions],
     limit: 3000,
   };
-
-  /*console.log(
-    "[fetchEventsInRange] Correct payload:",
-    JSON.stringify(findRequest, null, 2),
-  );*/
 
   try {
     const result = await fetchRecords(findRequest);
@@ -468,7 +448,7 @@ const mapRecordToEvent = (fmRecord) => {
 };
 
 // ── Parse FM Date/Time ─────────────────────────────────────────────────────
-
+// NEEDED 'CAUSE Execute Filemaker Data API' work with US dates.
 const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
   if (!dateStr) return new Date();
 
@@ -523,8 +503,6 @@ const setupWindowFunctions = (calendarRef) => {
 };
 
 // ── Event notify ────────────────────────────────────────────────────────────
-
-// ... (keep all previous code unchanged, including sendToFileMaker, fmwInit, etc.)
 
 // Helper to send wrapped notifications (fire-and-forget)
 const sendWrappedEvent = (eventType, dataPayload = {}) => {
@@ -604,47 +582,6 @@ const notifyViewChange = (view) => {
   sendWrappedEvent("ViewStateChanged", dataPayload);
 };
 
-// Date Select (uses "NewEventFromSelected", send start/end as Data)
-/*
- * Version which does NOT adjust to previous events, use the default time slot of fullCalendar (30 minutes wide)
- */
-/*
-const notifyDateSelect = (info) => {
-  console.log(
-    "[notifyDateSelect] Date selected:",
-    info.startStr,
-    "to",
-    info.endStr,
-  );
-
-  const dataPayload = {
-    // Use EXACT key names expected by the child script
-    StartDateStr: formatFMSetDate(info.startStr), // DD/MM/YYYY
-    StartTimeStr: cleanTime(info.startStr.split("T")[1] || "00:00:00"),
-    EndDateStr: formatFMSetDate(info.endStr),
-    EndTimeStr: cleanTime(info.endStr.split("T")[1] || "00:00:00"),
-
-    // Keep the other required keys (field names, etc.)
-    startDateFieldName: getConfigField("EventStartDateField", "StartDate"),
-    startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
-    endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
-    endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
-
-    eventDisplayLayout: getConfigField(
-      "EventDetailLayout",
-      "Visit Event Display",
-    ),
-    idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
-    editable: 1,
-  };
-
-  sendWrappedEvent("NewEventFromSelected", dataPayload);
-
-  // Optional: force immediate refetch to see the change faster
-  window.Calendar_Refresh?.();
-};
-*/
-
 /* USE THE LAST EVENT END TIME to adjust the startime of the new one */
 const notifyDateSelect = (info, calendarRef) => {
   console.log(
@@ -660,36 +597,6 @@ const notifyDateSelect = (info, calendarRef) => {
   let adjustedStart = new Date(info.start);
   let adjustedEnd = new Date(info.end);
 
-  /*
-  const calendarApi = calendarRef?.current?.getApi();
-  if (calendarApi) {
-    const allEvents = calendarApi.getEvents();
-
-    // Filter same-day, non-all-day events that overlap the selected slot
-    const overlappingEvents = allEvents.filter((event) => {
-      const sameDay =
-        event.start.toDateString() === adjustedStart.toDateString();
-      const overlaps = event.end > adjustedStart && event.start < adjustedEnd;
-      return sameDay && !event.allDay && overlaps;
-    });
-
-    if (overlappingEvents.length > 0) {
-      // Get the latest-ending overlapping event
-      const previousEvent = overlappingEvents.sort((a, b) => b.end - a.end)[0];
-
-      console.log(
-        "[notifyDateSelect] Overlapping event found, snapping start to:",
-        previousEvent.end.toLocaleString(),
-      );
-
-      adjustedStart = new Date(previousEvent.end.getTime());
-    } else {
-      console.log(
-        "[notifyDateSelect] No overlapping event - using default clicked slot start",
-      );
-    }
-  }
-  */
   const calendarApi = calendarRef?.current?.getApi();
   if (calendarApi) {
     const allEvents = calendarApi.getEvents();
@@ -792,60 +699,6 @@ const notifyDateSelect = (info, calendarRef) => {
 
   sendWrappedEvent("NewEventFromSelected", dataPayload);
 };
-/*
-// Event Drop (uses "EventDropped", send new dates/times and field names)
-// Helper: Format date for FileMaker SET FIELD (DD/MM/YYYY)
-const formatFMSetDate = (dateInput) => {
-  if (!dateInput) return null;
-
-  let date;
-
-  // If it's already a Date object
-  if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
-    date = dateInput;
-  } else {
-    // Try parsing as ISO first
-    date = new Date(dateInput);
-
-    // If invalid, try parsing as DD/MM/YYYY
-    if (isNaN(date.getTime())) {
-      const parts = dateInput.split("/");
-      if (parts.length === 3) {
-        const day = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
-        const year = parseInt(parts[2], 10);
-        date = new Date(year, month, day);
-      }
-    }
-  }
-
-  if (isNaN(date.getTime())) {
-    console.warn("[formatFMSetDate] Invalid date:", dateInput);
-    return null;
-  }
-
-  const day = date.getDate().toString().padStart(2, "0");
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const year = date.getFullYear();
-
-  return `${day}/${month}/${year}`;
-};
-
-// Helper: Clean time to HH:mm:ss only (remove offset)
-const cleanTime = (timeStr) => {
-  if (!timeStr) return "00:00:00";
-
-  // Remove timezone and milliseconds
-  let clean = timeStr.split("+")[0].split("Z")[0].split(".")[0];
-
-  // Split and pad
-  let [h = "00", m = "00", s = "00"] = clean.split(":");
-  h = h.padStart(2, "0");
-  m = m.padStart(2, "0");
-  s = s.padStart(2, "0");
-
-  return `${h}:${m}:${s}`;
-};*/
 
 const notifyEventDrop = (info) => {
   if (!info?.event?.id) {
