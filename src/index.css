@@ -49,7 +49,7 @@
 .fc-event {
     border-radius: 3px;
     border-width: 1px;
-    padding: 1px 2px;
+    padding: 0px 2px;
     font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -60,9 +60,9 @@
 
 /* Hover effect */
 .fc-event:hover {
-    opacity: 0.92;
+    opacity: 0.8;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transform: translateY(-1px);
+    transform: translateX(-1px);
 }
 
 /* Resize handles - more visible */
@@ -140,33 +140,26 @@
 }
 
 /* ==============================================
-// FINAL: Compact, readable short events – 3 fit per hour (30-min slots)
+// FINAL: Fit 3 × 20-min events per hour (30-min slots) – compact & elegant
 // ============================================== */
 
-/* Base for all timegrid events – elegant balance */
+/* Base for all timegrid events – aggressive compact for stacking */
 .fc-timegrid-event {
-    min-height: 20px !important; /* Short events shrink nicely, text readable */
-    padding: 0px 2px !important; /* Comfortable padding */
-    font-size: 11.5px !important; /* Slightly smaller for short events */
-    line-height: 1.1 !important;
-    border-radius: 4px;
+    min-height: 14px !important; /* Short events shrink to fit 3 per hour */
+    padding: 0px 4px !important; /* Very tight padding */
+    font-size: 11px !important; /* Smaller font for density */
+    line-height: 1 !important; /* Tighter lines */
+    border-radius: 3px;
     overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     transition: all 0.15s ease;
 }
 
-/* Extra compact for very short events (< 30 min) */
-.fc-timegrid-event-short-duration {
-    min-height: 18px !important;
-    padding: 0px 2px !important;
-    font-size: 10.5px !important;
-}
-
-/* Time & title – keep clean & readable */
+/* Time & title – keep readable but compact */
 .fc-event-time {
     font-weight: 600;
     font-size: inherit;
-    margin-bottom: 1px;
+    margin-bottom: 0px;
     display: block;
 }
 
@@ -176,4 +169,34 @@
     overflow: hidden;
     text-overflow: ellipsis;
     display: block;
+}
+
+/* Resize handles – white circles, visible on hover only */
+.fc-event-resizer-start,
+.fc-event-resizer-end {
+    background: rgba(255, 255, 255, 0.8) !important;
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 50% !important;
+    border: 1px solid #fff !important;
+    cursor: ns-resize !important;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+.fc-event-resizer-start {
+    top: -5px !important;
+    left: calc(50% - 5px) !important;
+}
+
+.fc-event-resizer-end {
+    bottom: -5px !important;
+    left: calc(50% - 5px) !important;
+}
+
+.fc-event:hover .fc-event-resizer-start,
+.fc-event:hover .fc-event-resizer-end {
+    opacity: 1 !important;
+    background: #ffffff !important;
 }
