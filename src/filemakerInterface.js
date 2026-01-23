@@ -103,11 +103,7 @@ const fmwInit = (onReady = () => {}) => {
         setSessionItem(SESSION_CONFIG_KEY, config);
         setSessionItem(SESSION_STATE_KEY, initialState);
 
-        console.log(
-          "[fmwInit] Initialized successfully - Config:",
-          //Object.keys(config),
-          config,
-        );
+        console.log("[filemakerInterface.fmwInit] Initialized successfully.");
 
         onReady();
         return;
@@ -473,9 +469,7 @@ const setupWindowFunctions = (calendarRef) => {
   const api = () => calendarRef.current?.getApi();
 
   window.Calendar_Refresh = () => {
-    console.log(
-      "[Calendar_Refresh] Refreshing calendar after card close/update",
-    );
+    console.log("[Calendar_Refresh] Refreshing calendar.");
 
     // Clear lingering selection mirror (deep blue square)
     api()?.unselect();

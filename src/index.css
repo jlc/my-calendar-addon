@@ -81,60 +81,128 @@
     opacity: 1 !important;
 }
 
-/* Exact event colors + linear gradients from original loka.io */
+/*
+ * Event Colours
+ */
+
+/* Event colors – all gradients at 90% opacity for consistent softening */
+
 .fc-event-blue {
-    background: linear-gradient(to bottom, #6db3f2 0%, #5c9bd1 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(109, 179, 242, 0.9) 0%,
+        rgba(92, 155, 209, 0.9) 100%
+    );
     border-color: #3279b8;
     color: #ffffff;
 }
 
 .fc-event-green {
-    background: linear-gradient(to bottom, #8ed78e 0%, #7aba7b 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(142, 215, 142, 0.9) 0%,
+        rgba(122, 186, 123, 0.9) 100%
+    );
     border-color: #4a8c4b;
     color: #ffffff;
 }
 
 .fc-event-purple {
-    background: linear-gradient(to bottom, #b875d0 0%, #a569bd 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(184, 117, 208, 0.9) 0%,
+        rgba(165, 105, 189, 0.9) 100%
+    );
     border-color: #7b3fa0;
     color: #ffffff;
 }
 
 .fc-event-red {
-    background: linear-gradient(to bottom, #f08080 0%, #e57373 100%);
-    border-color: #c62828;
+    background: linear-gradient(to bottom, rgba(244, 67, 54, 0.9) 0%, rgba(211, 47, 47, 0.9) 100%);
+    border-color: #d32f2f;
     color: #ffffff;
 }
 
 .fc-event-yellow {
-    background: linear-gradient(to bottom, #fff59d 0%, #ffeb3b 100%);
-    border-color: #fbc02d;
-    color: #333333;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(
+        to bottom,
+        rgba(255, 224, 130, 0.9) 0%,
+        rgba(251, 192, 45, 0.9) 100%
+    );
+    border-color: #ffb300;
+    color: #ffffff;
 }
 
 .fc-event-dark-blue {
-    background: linear-gradient(to bottom, #4d8bf5 0%, #3f51b5 100%);
+    background: linear-gradient(to bottom, rgba(77, 139, 245, 0.9) 0%, rgba(63, 81, 181, 0.9) 100%);
     border-color: #283593;
     color: #ffffff;
 }
 
 .fc-event-dark-green {
-    background: linear-gradient(to bottom, #4caf50 0%, #388e3c 100%);
+    background: linear-gradient(to bottom, rgba(76, 175, 80, 0.9) 0%, rgba(56, 142, 60, 0.9) 100%);
     border-color: #1b5e20;
     color: #ffffff;
 }
 
 .fc-event-dark-purple {
-    background: linear-gradient(to bottom, #9575cd 0%, #7e57c2 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(149, 117, 205, 0.9) 0%,
+        rgba(126, 87, 194, 0.9) 100%
+    );
     border-color: #512da8;
     color: #ffffff;
 }
 
-/* Default / fallback for "-" or unknown */
+.fc-event-orange {
+    background: linear-gradient(to bottom, rgba(255, 152, 0, 0.9) 0%, rgba(245, 124, 0, 0.9) 100%);
+    border-color: #ef6c00;
+    color: #ffffff;
+}
+
+.fc-event-gray {
+    background: linear-gradient(
+        to bottom,
+        rgba(189, 195, 199, 0.9) 0%,
+        rgba(149, 165, 166, 0.9) 100%
+    );
+    border-color: #95a5a6;
+    color: #ffffff;
+}
+
+.fc-event-dark-red {
+    background: linear-gradient(to bottom, rgba(211, 47, 47, 0.9) 0%, rgba(183, 28, 28, 0.9) 100%);
+    border-color: #b71c1c;
+    color: #ffffff;
+}
+
+.fc-event-dark-yellow {
+    background: linear-gradient(to bottom, rgba(255, 193, 7, 0.9) 0%, rgba(251, 192, 45, 0.9) 100%);
+    border-color: #f57f17;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.fc-event-dark-orange {
+    background: linear-gradient(to bottom, rgba(239, 108, 0, 0.9) 0%, rgba(216, 67, 21, 0.9) 100%);
+    border-color: #d84315;
+    color: #ffffff;
+}
+
+.fc-event-dark-gray {
+    background: linear-gradient(to bottom, rgba(84, 110, 122, 0.9) 0%, rgba(55, 71, 79, 0.9) 100%);
+    border-color: #37474f;
+    color: #ffffff;
+}
+
 .fc-event-,
 .fc-event-default {
-    background: linear-gradient(to bottom, #f0f0f0 0%, #e0e0e0 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(240, 240, 240, 0.9) 0%,
+        rgba(224, 224, 224, 0.9) 100%
+    );
     border-color: #bdbdbd;
     color: #444444;
 }

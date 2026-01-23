@@ -19,17 +19,16 @@ if (
     propsValue === undefined ||
     propsValue === null
   ) {
-    console.warn("[FM Init] Placeholder not substituted → empty config");
+    console.warn(
+      "[initializeFMProps] Placeholder not substituted → empty config",
+    );
     window.__initialProps__ = {};
     return;
   }
 
   // If it's ALREADY an object → we're good! (this is your current case)
   if (typeof propsValue === "object" && propsValue !== null) {
-    console.log(
-      "[initializeFMProps] __initialProps__ already set. Config:",
-      propsValue.Config || {},
-    );
+    console.log("[initializeFMProps] __initialProps__ already set.");
     return; // No need to parse
   }
 
@@ -43,15 +42,17 @@ if (
 
     try {
       window.__initialProps__ = JSON.parse(cleaned);
-      console.log(
-        "[initializeFMProps] Parsed string to object successfully. Config: ",
+      console.log("[initializeFMProps] success, initial props set.");
+    } catch (err) {
+      console.error("[initializeFMProps] String parse failed:", err.message);
+      console.error("[initializeFMProps] Cleaned string was:", cleaned);
+      console.error(
+        "[initializeFMProps] Config:",
         window.__initialProps__.Config || {},
       );
-    } catch (err) {
-      console.error("[FM Init] String parse failed:", err.message);
-      console.error("Cleaned string was:", cleaned);
       window.__initialProps__ = {};
     }
+
     return;
   }
 
@@ -125,6 +126,7 @@ function App() {
   // ── 1. Initialize FileMaker interface once on mount ───────────────────────
   useEffect(() => {
     if (isInitialized) return;
+    console.log("[useEffect] Init...");
 
     // Silence FileMaker's legacy auto-call attempts
     window.Calendar_Refresh = () => {};
@@ -150,6 +152,7 @@ function App() {
 
       setAddonUUID(window.__initialProps__?.AddonUUID);
 
+      // Initialise Locale
       if (
         window.__initialProps__?.Locale &&
         window.__initialProps__.Locale.value
@@ -163,9 +166,6 @@ function App() {
         window.__initialProps__.Config.Locale = { type: "text", value: "en" };
       }
 
-      const locale = getConfigField("Locale", "en");
-      console.log("[fmwInit]: Locale: ", locale);
-
       // Check ShowConfig AFTER init (safe)
       const configMode = window.__initialProps__?.ShowConfig === true;
       setShowConfig(configMode);
@@ -176,6 +176,9 @@ function App() {
         allowHTML: true,
         maxWidth: 300,
       });
+
+      const locale = getConfigField("Locale", "en");
+      console.log("[App.fmwInit] Init done, locale: ", locale);
 
       setIsInitialized(true);
     });
