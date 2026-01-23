@@ -82,10 +82,7 @@ const fmwInit = (onReady = () => {}) => {
         let props;
 
         // ── IMPORTANT CHANGE HERE ─────────────────────────────────────────
-        if (
-          typeof window.__initialProps__ === "object" &&
-          window.__initialProps__ !== null
-        ) {
+        if (typeof window.__initialProps__ === "object" && window.__initialProps__ !== null) {
           // Already an object → use directly (current successful case)
           props = window.__initialProps__;
         } else if (typeof window.__initialProps__ === "string") {
@@ -138,11 +135,7 @@ window.Fmw_Callback = function (jsonString) {
     //console.log("[Fmw_Callback] Parsed:", data);
 
     // Try to find FetchId in multiple possible locations (robust)
-    let fetchId =
-      data?.Meta?.FetchId ||
-      data?.fetchId ||
-      data?.FetchId ||
-      data?.Meta?.fetchId;
+    let fetchId = data?.Meta?.FetchId || data?.fetchId || data?.FetchId || data?.Meta?.fetchId;
 
     // If not found and there's exactly one pending request → assume it's for that one
     if (!fetchId && pendingCallbacks.size === 1) {
@@ -152,9 +145,7 @@ window.Fmw_Callback = function (jsonString) {
       //  fetchId,
       //);
     } else if (!fetchId) {
-      console.warn(
-        "[Fmw_Callback] No FetchId and multiple/no pending → ignoring",
-      );
+      console.warn("[Fmw_Callback] No FetchId and multiple/no pending → ignoring");
       return;
     }
 
@@ -181,9 +172,7 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   const fullParam = {
     Data: data,
     Meta: {
-      AddonUUID:
-        window.__initialProps__?.AddonUUID ||
-        "F84BA49F-913B-4818-9C3D-5CDAEC10CA6D",
+      AddonUUID: window.__initialProps__?.AddonUUID || "F84BA49F-913B-4818-9C3D-5CDAEC10CA6D",
       FetchId: fetchId,
       Callback: "Fmw_Callback",
       Config: config,
@@ -245,9 +234,7 @@ const fetchRecords = async (findRequest) => {
 
     // Handle 401 inside try (if promise resolves with error)
     if (messages.some((msg) => msg?.code === "401" || msg?.code === 401)) {
-      console.log(
-        "[fetchRecords] No records found (401 in messages) - returning empty array",
-      );
+      console.log("[fetchRecords] No records found (401 in messages) - returning empty array");
       return { dataInfo: {}, data: [] };
     }
 
@@ -271,9 +258,7 @@ const fetchRecords = async (findRequest) => {
       err?.message?.includes("401") ||
       err?.message?.includes("No records match the request") ||
       err?.code === "401" ||
-      err?.response?.messages?.some?.(
-        (msg) => msg?.code === "401" || msg?.code === 401,
-      )
+      err?.response?.messages?.some?.((msg) => msg?.code === "401" || msg?.code === 401)
     ) {
       /*console.log(
         "[fetchRecords] No records found (401 in catch) - returning empty array",
@@ -319,9 +304,7 @@ const fetchEventsInRange = async (startStr, endStr) => {
 
   const safeLayout = (eventDetailLayout || "").trim();
   if (!safeLayout) {
-    console.error(
-      "[fetchEventsInRange] ERROR: No layout name in config! Using fallback.",
-    );
+    console.error("[fetchEventsInRange] ERROR: No layout name in config! Using fallback.");
     // Optional: fallback to a known good layout
     // safeLayout = "Events";
   }
@@ -371,18 +354,12 @@ const mapRecordToEvent = (fmRecord) => {
   const endTimeField = resolveFieldName("EventEndTimeField") || "EndTime";
   const allDayField = resolveFieldName("EventAllDayField") || "AllDay";
   const editableField = resolveFieldName("EventEditableField") || "Editable";
-  const descriptionField =
-    resolveFieldName("EventDescriptionField") || "Description";
+  const descriptionField = resolveFieldName("EventDescriptionField") || "Description";
   const styleField = resolveFieldName("EventStyleField") || "Style";
 
   const id = fd[idField];
   if (!id) {
-    console.warn(
-      "[mapRecordToEvent] Missing ID - field not found:",
-      idField,
-      "in",
-      fd,
-    );
+    console.warn("[mapRecordToEvent] Missing ID - field not found:", idField, "in", fd);
     return null;
   }
 
@@ -480,8 +457,7 @@ const setupWindowFunctions = (calendarRef) => {
     // Optional: Force full visual refresh (safe if refetch alone doesn't clear)
     api()?.render();
   };
-  window.Calendar_SetView = (viewName) =>
-    api()?.changeView(mapViewName(viewName));
+  window.Calendar_SetView = (viewName) => api()?.changeView(mapViewName(viewName));
   window.Calendar_Next = () => api()?.next();
   window.Calendar_Prev = () => api()?.prev();
   window.Calendar_Today = () => api()?.today();
@@ -542,10 +518,7 @@ const notifyEventClick = (event) => {
 
   const dataPayload = {
     id: event.id.toString(),
-    eventDisplayLayout: getConfigField(
-      "EventDetailLayout",
-      "Visit Event Display",
-    ),
+    eventDisplayLayout: getConfigField("EventDetailLayout", "Visit Event Display"),
     idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
     editable: event.editable ? 1 : 0,
   };
@@ -578,12 +551,7 @@ const notifyViewChange = (view) => {
 
 /* USE THE LAST EVENT END TIME to adjust the startime of the new one */
 const notifyDateSelect = (info, calendarRef) => {
-  console.log(
-    "[notifyDateSelect] Date selected:",
-    info.startStr,
-    "to",
-    info.endStr,
-  );
+  console.log("[notifyDateSelect] Date selected:", info.startStr, "to", info.endStr);
 
   // Use local Date objects
   let adjustedStart = new Date(info.start);
@@ -597,12 +565,11 @@ const notifyDateSelect = (info, calendarRef) => {
 
     // Filter same-day, non-all-day events that end within the clicked slot (overlap or middle end)
     const endingInSlotEvents = allEvents.filter((event) => {
-      const sameDay =
-        new Date(event.start).toDateString() === adjustedStart.toDateString();
+      const sameDay = new Date(event.start).toDateString() === adjustedStart.toDateString();
       const endsInSlot = event.end > adjustedStart && event.end < adjustedEnd; // Ends after slot start and before slot end
       const isAllDay = event.allDay;
 
-      console.log(
+      /* console.log(
         "[notifyDateSelect] Checking event:",
         event.id,
         "sameDay:",
@@ -617,7 +584,7 @@ const notifyDateSelect = (info, calendarRef) => {
         adjustedStart.toISOString(),
         "adjustedEnd:",
         adjustedEnd.toISOString(),
-      );
+      ); */
 
       return sameDay && !isAllDay && endsInSlot;
     });
@@ -633,9 +600,7 @@ const notifyDateSelect = (info, calendarRef) => {
 
       adjustedStart = new Date(previousEvent.end.getTime());
     } else {
-      console.log(
-        "[notifyDateSelect] No event ending in slot - using slot start",
-      );
+      console.log("[notifyDateSelect] No event ending in slot - using slot start");
     }
   }
 
@@ -681,10 +646,7 @@ const notifyDateSelect = (info, calendarRef) => {
     endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
     endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
 
-    eventDisplayLayout: getConfigField(
-      "EventDetailLayout",
-      "Visit Event Display",
-    ),
+    eventDisplayLayout: getConfigField("EventDetailLayout", "Visit Event Display"),
     idFieldName: getConfigField("EventPrimaryKeyField", "Id"),
     editable: 1,
   };
@@ -715,10 +677,7 @@ const notifyEventDrop = (info) => {
     startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
     endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
     endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
-    eventDisplayLayout: getConfigField(
-      "EventDetailLayout",
-      "Visit Event Display",
-    ),
+    eventDisplayLayout: getConfigField("EventDetailLayout", "Visit Event Display"),
 
     newStartDate: adjustedStart.toLocaleDateString(locale, {
       day: "2-digit",
@@ -783,10 +742,7 @@ const notifyEventResize = (info) => {
     startTimeFieldName: getConfigField("EventStartTimeField", "StartTime"),
     endDateFieldName: getConfigField("EventEndDateField", "EndDate"),
     endTimeFieldName: getConfigField("EventEndTimeField", "EndTime"),
-    eventDisplayLayout: getConfigField(
-      "EventDetailLayout",
-      "Visit Event Display",
-    ),
+    eventDisplayLayout: getConfigField("EventDetailLayout", "Visit Event Display"),
 
     newStartDate: adjustedStart.toLocaleDateString(locale, {
       day: "2-digit",
