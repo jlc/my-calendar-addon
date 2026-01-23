@@ -81,6 +81,14 @@
     opacity: 1 !important;
 }
 
+/* In ListView, make hovering noticable */
+/* DOES NOT WORK
+.fc-list-event[role="button"]:hover .fc-list-event-title,
+.fc-list-event[role="button"]:hover .fc-list-event-time {
+    color: #ffffff !important;
+    background-color: rgba(0, 0, 0, 0.12) !important;
+} */
+
 /*
  * Event Colours
  */
