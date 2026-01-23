@@ -1,10 +1,7 @@
 // src/App.jsx
 
 // populated by FM
-if (
-  window.__initialProps__ === undefined ||
-  window.__initialProps__ === "__PROPS__"
-) {
+if (window.__initialProps__ === undefined || window.__initialProps__ === "__PROPS__") {
   window.__initialProps__ = "__PROPS__"; // Ensure placeholder survives
 }
 
@@ -14,14 +11,8 @@ if (
 (function initializeFMProps() {
   const propsValue = window.__initialProps__;
 
-  if (
-    propsValue === "__PROPS__" ||
-    propsValue === undefined ||
-    propsValue === null
-  ) {
-    console.warn(
-      "[initializeFMProps] Placeholder not substituted → empty config",
-    );
+  if (propsValue === "__PROPS__" || propsValue === undefined || propsValue === null) {
+    console.warn("[initializeFMProps] Placeholder not substituted → empty config");
     window.__initialProps__ = {};
     return;
   }
@@ -46,10 +37,7 @@ if (
     } catch (err) {
       console.error("[initializeFMProps] String parse failed:", err.message);
       console.error("[initializeFMProps] Cleaned string was:", cleaned);
-      console.error(
-        "[initializeFMProps] Config:",
-        window.__initialProps__.Config || {},
-      );
+      console.error("[initializeFMProps] Config:", window.__initialProps__.Config || {});
       window.__initialProps__ = {};
     }
 
@@ -57,9 +45,7 @@ if (
   }
 
   // Ultimate fallback
-  console.warn(
-    "[initializeFMProps] Unexpected type → forcing empty window.__initialProps__",
-  );
+  console.warn("[initializeFMProps] Unexpected type → forcing empty window.__initialProps__");
   window.__initialProps__ = {};
 })();
 
@@ -74,13 +60,7 @@ window.fmwConfigChangeCallback = (result = null, fetchId = null) => {
  * Now start the React App
  */
 
-import React, {
-  useRef,
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -137,13 +117,8 @@ function App() {
     window.fmwInit = () => {}; // sometimes called too
 
     // Force re-parse if it's still the placeholder
-    if (
-      typeof window.__initialProps__ === "string" &&
-      window.__initialProps__ === "__PROPS__"
-    ) {
-      console.warn(
-        "[App.useEffect] Placeholder not substituted - config will be empty",
-      );
+    if (typeof window.__initialProps__ === "string" && window.__initialProps__ === "__PROPS__") {
+      console.warn("[App.useEffect] Placeholder not substituted - config will be empty");
     }
 
     fmwInit(() => {
@@ -153,16 +128,11 @@ function App() {
       setAddonUUID(window.__initialProps__?.AddonUUID);
 
       // Initialise Locale
-      if (
-        window.__initialProps__?.Locale &&
-        window.__initialProps__.Locale.value
-      ) {
+      if (window.__initialProps__?.Locale && window.__initialProps__.Locale.value) {
         // Locale is passed alongside Meta, AddonUUID, .. put it into Config
         window.__initialProps__.Config.Locale = window.__initialProps__.Locale;
       } else {
-        console.warn(
-          "[fmwInit]: Locale has NOT been set dynamically, default to 'en'.",
-        );
+        console.warn("[fmwInit]: Locale has NOT been set dynamically, default to 'en'.");
         window.__initialProps__.Config.Locale = { type: "text", value: "en" };
       }
 
@@ -200,10 +170,7 @@ function App() {
           fetchInfo.endStr,
         );*/
 
-        const eventsData = await fetchEventsInRange(
-          fetchInfo.startStr,
-          fetchInfo.endStr,
-        );
+        const eventsData = await fetchEventsInRange(fetchInfo.startStr, fetchInfo.endStr);
 
         //console.log("[Raw Fetch (records from FM)]", eventsData); // ← NEW: see the actual array
 
@@ -220,11 +187,7 @@ function App() {
         currentEvents.current = fcEvents; // Update ref for future fallbacks
         successCallback(fcEvents);
 
-        console.log(
-          "[rawFetch of events] Completed - Mapped count:",
-          fcEvents.length,
-          fcEvents,
-        );
+        console.log("[rawFetch of events] Completed - Mapped count:", fcEvents.length, fcEvents);
       } catch (error) {
         console.error("[rawFetch of events] Failed:", error);
         successCallback(currentEvents.current); // Use ref fallback
@@ -287,13 +250,7 @@ function App() {
     <div style={{ height: "98vh", width: "99vw" }}>
       <FullCalendar
         ref={calendarRef}
-        plugins={[
-          dayGridPlugin,
-          timeGridPlugin,
-          interactionPlugin,
-          listPlugin,
-          multiMonthPlugin,
-        ]}
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin, multiMonthPlugin]}
         initialView={mapViewName(getConfigField("StartingView", "Month"))}
         firstDay={getFirstDayOfWeek()}
         headerToolbar={
