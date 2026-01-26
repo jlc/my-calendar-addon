@@ -5,22 +5,25 @@ import { v4 as uuidv4 } from "uuid";
 // ── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_TIMEOUT_MS = 30000;
 const CALLBACK_FUNCTION_NAME = "Fmw_Callback";
-const SESSION_STATE_KEY = "calendar.state";
-const SESSION_CONFIG_KEY = "calendar.config";
+//const SESSION_STATE_KEY = "calendar.state";
+//const SESSION_CONFIG_KEY = "calendar.config";
 
 // ── Globals ─────────────────────────────────────────────────────────────────
 let addonUUID = null;
 let config = {};
+//let initialState = {};
 let callbackRegistry = {}; // fetchId → { resolve, reject, timeoutId, status }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const isInFileMaker = () => !!window.FileMaker;
 
+/*
 const getSessionItem = (key) => {
   try {
     const value = sessionStorage.getItem(key);
     return value ? JSON.parse(value) : null;
-  } catch {
+  } catch (err) {
+    console.warn("SessionStorage getItem failed:", err);
     return null;
   }
 };
@@ -32,6 +35,7 @@ const setSessionItem = (key, value) => {
     console.warn("SessionStorage write failed:", err);
   }
 };
+*/
 
 // Get config value (handles { type, value } structure from ConfigStore)
 const getConfigField = (key, defaultValue = null) => {
@@ -64,6 +68,8 @@ const getFirstDayOfWeek = () => {
 
 // ── Initialization ──────────────────────────────────────────────────────────
 const fmwInit = (onReady = () => {}) => {
+  console.log("FileMaker Interface.fmwInit: start");
+
   if (addonUUID) {
     onReady();
     return;
@@ -72,7 +78,35 @@ const fmwInit = (onReady = () => {}) => {
   const pollForFileMaker = setInterval(() => {
     if (!window.FileMaker) return;
 
+    console.log("filemakerInterface.fmwInit.pollForFileMaker()");
+
     clearInterval(pollForFileMaker);
+
+    let props;
+
+    if (typeof window.__initialProps__ === "object" && window.__initialProps__ !== null) {
+      // Already an object → use directly (current successful case)
+      props = window.__initialProps__;
+    } else if (typeof window.__initialProps__ === "string") {
+      // String → parse it (fallback for other situations)
+      //props = JSON.parse(window.__initialProps__);
+      console.error(
+        "fmwInit.pollForFileMaker: __initialProps__ is a string, so... Initialization did not happened!?!",
+      );
+      return;
+    } else {
+      console.error("fmwInit.pollForFileMaker: unexpected type for __initialProps__");
+      return;
+    }
+
+    addonUUID = props.AddonUUID || uuidv4();
+    config = props.Config || {};
+    console.log("props: ", props);
+    //initialState = props.State || {};
+
+    console.log("filemakerInterface.fmwInit.pollForFileMaker() calling onReady()");
+    onReady();
+    return;
 
     let initialState = {};
 
@@ -102,21 +136,58 @@ const fmwInit = (onReady = () => {}) => {
 
         console.log("[filemakerInterface.fmwInit] Initialized successfully.");
 
+        //window.alert("FileMaker Interface.fmwInit: initialized successfully");
+
         onReady();
         return;
       } catch (err) {
         console.error("[fmwInit] Failed processing __initialProps__:", err);
+
+        window.alert("FileMaker Interface.fmwInit: failed processing __initialProps__");
       }
     }
 
     // 2. Fallback: recover from sessionStorage
     config = getSessionItem(SESSION_CONFIG_KEY) || {};
     initialState = getSessionItem(SESSION_STATE_KEY) || {};
-    addonUUID = initialState.AddonUUID || uuidv4();
+    addonUUID = initialState.AddonUUID || null; //uuidv4(); // force error here!
 
-    //console.log("[fmwInit] Recovered from sessionStorage");
+    //window.alert("FileMaker Interface.fmwInit: recorvered from sessionStorage");
+
+    console.log("[fmwInit] Recovered from sessionStorage");
     onReady();
   }, 80);
+};
+
+// ── Calendar controls ───────────────────────────────────────────────────────
+const setupWindowFunctions = (calendarRef) => {
+  const api = () => calendarRef.current?.getApi();
+
+  window.Calendar_Refresh = () => {
+    console.log("[Calendar_Refresh] Refreshing calendar.");
+
+    // Clear lingering selection mirror (deep blue square)
+    api()?.unselect();
+
+    // Refetch events to reflect FM updates (auto end time, etc.)
+    api()?.refetchEvents();
+
+    // Optional: Force full visual refresh (safe if refetch alone doesn't clear)
+    api()?.render();
+  };
+  window.Calendar_SetView = (viewName) => api()?.changeView(mapViewName(viewName));
+  window.Calendar_Next = () => api()?.next();
+  window.Calendar_Prev = () => api()?.prev();
+  window.Calendar_Today = () => api()?.today();
+  window.Calendar_GotoDate = (dateStr) => {
+    if (dateStr) api()?.gotoDate(dateStr);
+  };
+
+  window.fmwGetState = () => ({
+    addonUUID,
+    config,
+    sessionState: {}, // initialSession, //getSessionItem(SESSION_STATE_KEY),
+  });
 };
 
 // ── Core communication functions ────────────────────────────────────────────
@@ -128,7 +199,7 @@ const pendingCallbacks = new Map();
 
 // Global callback handler – make it very verbose for now
 window.Fmw_Callback = function (jsonString) {
-  //console.log("[Fmw_Callback] Raw:", jsonString);
+  console.log("[Fmw_Callback] raw json:", jsonString);
 
   try {
     const data = JSON.parse(jsonString);
@@ -275,6 +346,8 @@ const fetchRecords = async (findRequest) => {
 const fetchEventsInRange = async (startStr, endStr) => {
   const startDate = new Date(startStr);
   const endDate = new Date(endStr);
+
+  //window.alert("filemakerInterface.fetchEventsInRange()");
 
   // Buffer ±2 days (original addon style)
   const bufferStart = new Date(startDate);
@@ -441,37 +514,6 @@ const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
   return new Date(year, month, day, hour, min, sec);
 };
 
-// ── Calendar controls ───────────────────────────────────────────────────────
-const setupWindowFunctions = (calendarRef) => {
-  const api = () => calendarRef.current?.getApi();
-
-  window.Calendar_Refresh = () => {
-    console.log("[Calendar_Refresh] Refreshing calendar.");
-
-    // Clear lingering selection mirror (deep blue square)
-    api()?.unselect();
-
-    // Refetch events to reflect FM updates (auto end time, etc.)
-    api()?.refetchEvents();
-
-    // Optional: Force full visual refresh (safe if refetch alone doesn't clear)
-    api()?.render();
-  };
-  window.Calendar_SetView = (viewName) => api()?.changeView(mapViewName(viewName));
-  window.Calendar_Next = () => api()?.next();
-  window.Calendar_Prev = () => api()?.prev();
-  window.Calendar_Today = () => api()?.today();
-  window.Calendar_GotoDate = (dateStr) => {
-    if (dateStr) api()?.gotoDate(dateStr);
-  };
-
-  window.fmwGetState = () => ({
-    addonUUID,
-    config,
-    sessionState: getSessionItem(SESSION_STATE_KEY),
-  });
-};
-
 // ── Event notify ────────────────────────────────────────────────────────────
 
 // Helper to send wrapped notifications (fire-and-forget)
@@ -516,6 +558,8 @@ const sendWrappedEvent = (eventType, dataPayload = {}) => {
 const notifyEventClick = (event) => {
   console.log("[notifyEventClick] Event clicked:", event.id);
 
+  //window.alert("filemakerInterface.notifyEventClick()");
+
   const dataPayload = {
     id: event.id.toString(),
     eventDisplayLayout: getConfigField("EventDetailLayout", "Visit Event Display"),
@@ -529,6 +573,8 @@ const notifyEventClick = (event) => {
 // View Change (uses "ViewStateChanged", send full view state in Data)
 const notifyViewChange = (view) => {
   console.log("[notifyViewChange] View changed:", view.type);
+
+  //window.alert("filemakerInterface.notifyViewChange()");
 
   // Calculate calendarDate (middle of the active range)
   const start = view.activeStart;
@@ -552,6 +598,8 @@ const notifyViewChange = (view) => {
 /* USE THE LAST EVENT END TIME to adjust the startime of the new one */
 const notifyDateSelect = (info, calendarRef) => {
   console.log("[notifyDateSelect] Date selected:", info.startStr, "to", info.endStr);
+
+  //window.alert("filemakerInterface.notifyDateSelect()");
 
   // Use local Date objects
   let adjustedStart = new Date(info.start);
@@ -657,6 +705,8 @@ const notifyDateSelect = (info, calendarRef) => {
 };
 
 const notifyEventDrop = (info) => {
+  //window.alert("filemakerInterface.notifyEventDrops()");
+
   if (!info?.event?.id) {
     console.error("[notifyEventDrop] No event ID");
     return;
@@ -715,6 +765,8 @@ const notifyEventDrop = (info) => {
 
 // Event Resize (uses "EventResized", send new end date/time and field names)
 const notifyEventResize = (info) => {
+  //window.alert("filemakerInterface.notifyEventResize()");
+
   if (!info?.event?.id || !info?.event?.end) {
     console.warn("[notifyEventResize] Invalid resize info");
     return;

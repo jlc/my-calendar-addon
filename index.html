@@ -1,13 +1,46 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>my-calendar-addon</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>my-calendar-addon</title>
+    </head>
+    <body>
+        <!-- --
+        <div
+            id="log-panel"
+            style='position: "fixed"; bottom: 0; left: 0; right: 0; height: "120px"; background: "rgba(13,13,13,0.85)"; color: "#e0e0e0"; fontFamily: "Consolas, Courier New", monospace"; fontSize: "12px"; padding: "0.8rem 1rem"; borderTop: "1px solid #333"; overflowY: "auto"; zIndex: 9999; opacity: 0.9; pointerEvents: "auto";'
+        ></div>
+        -->
+        <div
+            id="log-panel"
+            style="
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 45vh;
+                background: rgba(40, 40, 40, 0.98);
+                color: #e0e0e0;
+                font-family: &quot;monospace&quot;;
+                font-size: 13.5px;
+                line-height: 1.45;
+                padding: 1rem 1.2rem;
+                border-top: 1px solid #555;
+                overflow-y: auto;
+                z-index: 9999; /* very high = on top of almost everything */
+                box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+                white-space: pre-wrap;
+                word-break: break-all;
+            "
+        >
+            <!-- Optional header -->
+            <div style="color: #888; font-weight: bold; margin-bottom: 0.6rem">Logs</div>
+
+            <!-- Your log lines will be appended here -->
+        </div>
+        <div id="root"></div>
+        <script type="module" src="/src/main.jsx"></script>
+    </body>
 </html>

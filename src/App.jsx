@@ -14,12 +14,15 @@ if (window.__initialProps__ === undefined || window.__initialProps__ === "__PROP
   if (propsValue === "__PROPS__" || propsValue === undefined || propsValue === null) {
     console.warn("[initializeFMProps] Placeholder not substituted → empty config");
     window.__initialProps__ = {};
+
+    window.alert("init FM Props warning placeholder not substituted");
     return;
   }
 
   // If it's ALREADY an object → we're good! (this is your current case)
   if (typeof propsValue === "object" && propsValue !== null) {
     console.log("[initializeFMProps] __initialProps__ already set.");
+    //window.alert("init FM Props already set");
     return; // No need to parse
   }
 
@@ -34,15 +37,21 @@ if (window.__initialProps__ === undefined || window.__initialProps__ === "__PROP
     try {
       window.__initialProps__ = JSON.parse(cleaned);
       console.log("[initializeFMProps] success, initial props set.");
+
+      //window.alert("init FM Props sucesss");
     } catch (err) {
       console.error("[initializeFMProps] String parse failed:", err.message);
       console.error("[initializeFMProps] Cleaned string was:", cleaned);
       console.error("[initializeFMProps] Config:", window.__initialProps__.Config || {});
       window.__initialProps__ = {};
+
+      window.alert("init FM Props parse failed - set to empty");
     }
 
     return;
   }
+
+  //window.alert("init FM Props ultimate fallback");
 
   // Ultimate fallback
   console.warn("[initializeFMProps] Unexpected type → forcing empty window.__initialProps__");
@@ -108,6 +117,8 @@ function App() {
     if (isInitialized) return;
     console.log("[useEffect] Init...");
 
+    //window.alert("App.useEffect: init...");
+
     // Silence FileMaker's legacy auto-call attempts
     window.Calendar_Refresh = () => {};
     window.Calendar_SetView = () => {}; // already exists but harmless to redefine
@@ -122,8 +133,12 @@ function App() {
     }
 
     fmwInit(() => {
+      //window.alert("App.fmwInit(): start");
+
       // Once FileMaker is ready and props are loaded
       setupWindowFunctions(calendarRef);
+
+      //window.alert("App.fmwInit(): setupWindowFunctions done");
 
       setAddonUUID(window.__initialProps__?.AddonUUID);
 
@@ -140,6 +155,8 @@ function App() {
       const configMode = window.__initialProps__?.ShowConfig === true;
       setShowConfig(configMode);
 
+      //window.alert("App.fmwInit(): locale intialised");
+
       // Initialize global tooltips (common in calendar add-ons)
       tippy("[data-tippy-content]", {
         placement: "top",
@@ -149,6 +166,8 @@ function App() {
 
       const locale = getConfigField("Locale", "en");
       console.log("[App.fmwInit] Init done, locale: ", locale);
+
+      //window.alert("App.fmwInit(): initialised");
 
       setIsInitialized(true);
     });
@@ -196,6 +215,8 @@ function App() {
     [], // No dependencies → stable across renders
   );
 
+  //window.alert("App - rawFetch defined.");
+
   // 2. Create a debounced version (memoized so it doesn't recreate on render)
   const debouncedFetch = useMemo(() => {
     let timeoutId;
@@ -204,6 +225,8 @@ function App() {
       timeoutId = setTimeout(() => rawFetch(fetchInfo, success, failure), 500);
     };
   }, [rawFetch]);
+
+  //window.alert("App - debouncedFetch defined.");
 
   // ── 3. Render ─────────────────────────────────────────────────────────────
   if (!isInitialized) {
@@ -245,6 +268,8 @@ function App() {
       </div>
     );
   }
+
+  //window.alert("App - return of fullCalendar.");
 
   return (
     <div style={{ height: "98vh", width: "99vw" }}>
@@ -334,4 +359,6 @@ function App() {
   );
 }
 
+//{/* Initial header (optional) */}
+/*<div style={{ color: "#888", fontWeight: "bold", marginBottom: "0.4rem" }}>Debug Logs</div>*/
 export default App;
