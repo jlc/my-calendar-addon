@@ -17,26 +17,6 @@ let callbackRegistry = {}; // fetchId → { resolve, reject, timeoutId, status }
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const isInFileMaker = () => !!window.FileMaker;
 
-/*
-const getSessionItem = (key) => {
-  try {
-    const value = sessionStorage.getItem(key);
-    return value ? JSON.parse(value) : null;
-  } catch (err) {
-    console.warn("SessionStorage getItem failed:", err);
-    return null;
-  }
-};
-
-const setSessionItem = (key, value) => {
-  try {
-    sessionStorage.setItem(key, JSON.stringify(value));
-  } catch (err) {
-    console.warn("SessionStorage write failed:", err);
-  }
-};
-*/
-
 // Get config value (handles { type, value } structure from ConfigStore)
 const getConfigField = (key, defaultValue = null) => {
   return config?.[key]?.value ?? defaultValue;
@@ -95,7 +75,7 @@ const fmwInit = (onReady = () => {}) => {
       );
       return;
     } else {
-      console.error("fmwInit.pollForFileMaker: unexpected type for __initialProps__");
+      console.error("fmwInit.pollForFileMaker: null or unexpected type for __initialProps__");
       return;
     }
 
@@ -107,55 +87,6 @@ const fmwInit = (onReady = () => {}) => {
     console.log("filemakerInterface.fmwInit.pollForFileMaker() calling onReady()");
     onReady();
     return;
-
-    let initialState = {};
-
-    // 1. Try from injected __initialProps__ (primary source)
-    if (window.__initialProps__) {
-      try {
-        let props;
-
-        // ── IMPORTANT CHANGE HERE ─────────────────────────────────────────
-        if (typeof window.__initialProps__ === "object" && window.__initialProps__ !== null) {
-          // Already an object → use directly (current successful case)
-          props = window.__initialProps__;
-        } else if (typeof window.__initialProps__ === "string") {
-          // String → parse it (fallback for other situations)
-          props = JSON.parse(window.__initialProps__);
-        } else {
-          throw new Error("Unexpected type for __initialProps__");
-        }
-        // ─────────────────────────────────────────────────────────────────
-
-        addonUUID = props.AddonUUID || uuidv4();
-        config = props.Config || {};
-        initialState = props.State || {};
-
-        setSessionItem(SESSION_CONFIG_KEY, config);
-        setSessionItem(SESSION_STATE_KEY, initialState);
-
-        console.log("[filemakerInterface.fmwInit] Initialized successfully.");
-
-        //window.alert("FileMaker Interface.fmwInit: initialized successfully");
-
-        onReady();
-        return;
-      } catch (err) {
-        console.error("[fmwInit] Failed processing __initialProps__:", err);
-
-        window.alert("FileMaker Interface.fmwInit: failed processing __initialProps__");
-      }
-    }
-
-    // 2. Fallback: recover from sessionStorage
-    config = getSessionItem(SESSION_CONFIG_KEY) || {};
-    initialState = getSessionItem(SESSION_STATE_KEY) || {};
-    addonUUID = initialState.AddonUUID || null; //uuidv4(); // force error here!
-
-    //window.alert("FileMaker Interface.fmwInit: recorvered from sessionStorage");
-
-    console.log("[fmwInit] Recovered from sessionStorage");
-    onReady();
   }, 80);
 };
 
@@ -238,44 +169,69 @@ window.Fmw_Callback = function (jsonString) {
 
 // Updated sendToFileMaker – ensure Meta is set correctly
 const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
-  const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random()
+  console.log("[sendToFileMaker]: start()");
+  try {
+    //const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random()
+    const fetchId = 42;
 
-  const fullParam = {
-    Data: data,
-    Meta: {
-      AddonUUID: window.__initialProps__?.AddonUUID || "F84BA49F-913B-4818-9C3D-5CDAEC10CA6D",
-      FetchId: fetchId,
-      Callback: "Fmw_Callback",
-      Config: config,
-      ...metaOverrides,
-    },
-  };
+    console.log("[sendToFileMaker]: after fetchdi()");
 
-  const paramJson = JSON.stringify(fullParam);
-  /*console.log(
-    `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
-    fetchId,
-    "Param:",
-    fullParam,
-  );*/
+    const fullParam = {
+      Data: data,
+      Meta: {
+        AddonUUID: window.__initialProps__?.AddonUUID || "F84BA49F-913B-4818-9C3D-5CDAEC10CA6D",
+        FetchId: fetchId,
+        Callback: "Fmw_Callback",
+        Config: config,
+        ...metaOverrides,
+      },
+    };
 
-  return new Promise((resolve, reject) => {
-    pendingCallbacks.set(fetchId, { resolve, reject });
+    console.log("[sendToFileMaker]: after fullParam()");
+    const paramJson = JSON.stringify(fullParam);
+    console.log("[sendToFileMaker]: after JSON(), paramJson", paramJson);
+    /*console.log(
+      `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
+      fetchId,
+      "Param:",
+      fullParam,
+    );*/
+  } catch (err) {
+    console.error("[sendToFileMaker]: exception at start of sendToFilemaker, err:", err);
+    return null;
+  }
 
-    if (window.FileMaker?.PerformScript) {
-      window.FileMaker.PerformScript(scriptName, paramJson);
-    } else {
-      reject(new Error("FileMaker.PerformScript not available"));
-    }
+  let prom = null;
+  console.log("[sendToFileMaker]: after prom = null");
 
-    // Timeout safeguard
-    setTimeout(() => {
-      if (pendingCallbacks.has(fetchId)) {
-        pendingCallbacks.delete(fetchId);
-        reject(new Error(`Timeout waiting for callback from ${scriptName}`));
+  try {
+    prom = new Promise((resolve, reject) => {
+      pendingCallbacks.set(fetchId, { resolve, reject });
+
+      if (window.FileMaker?.PerformScript) {
+        window.FileMaker.PerformScript(scriptName, paramJson);
+      } else {
+        reject(new Error("FileMaker.PerformScript not available"));
       }
-    }, 30000); // 30s – adjust if your finds are slow
-  });
+
+      // Timeout safeguard
+      setTimeout(() => {
+        if (pendingCallbacks.has(fetchId)) {
+          pendingCallbacks.delete(fetchId);
+          reject(new Error(`Timeout waiting for callback from ${scriptName}`));
+        }
+      }, 30000); // 30s – adjust if your finds are slow
+    });
+  } catch (err) {
+    console.error(
+      "[sendToFileMaker] exception while promising to call window.FileMaker.PerformScript: ",
+      scriptName,
+    );
+
+    prom = null;
+  }
+
+  return prom;
 };
 
 const sendEvent = (dummyType, payload = {}) => {
@@ -296,9 +252,10 @@ const sendEvent = (dummyType, payload = {}) => {
 };
 
 const fetchRecords = async (findRequest) => {
+  console.log("[fetchRecords]: start");
   try {
     const response = await sendToFileMaker("FCCalendarFind", findRequest);
-    //console.log("[fetchRecords] Full callback response:", response);
+    console.log("[fetchRecords] Full callback response:", response);
 
     const result = response?.response || response || {};
     const messages = Array.isArray(response?.messages) ? response.messages : [];
@@ -334,11 +291,10 @@ const fetchRecords = async (findRequest) => {
       /*console.log(
         "[fetchRecords] No records found (401 in catch) - returning empty array",
       );*/
-      return { dataInfo: {}, data: [] };
+    } else {
+      // Real errors (network, timeout, etc.) - log in red
+      console.error("[fetchRecords] Real failure (not 401):", err);
     }
-
-    // Real errors (network, timeout, etc.) - log in red
-    console.error("[fetchRecords] Real failure (not 401):", err);
     return { dataInfo: {}, data: [] };
   }
 };
