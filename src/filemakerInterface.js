@@ -1,12 +1,39 @@
 // filemakerInterface.js
 
-//import { v4 as uuidv4 } from "uuid";
+// ----------------------------------------
+//
+// TODO: TODO: TODO:
+// use fm-gofer instead of current Promise() -> call FileMaker
+// https://github.com/jwillinghalpern/fm-gofer/tree/master
+//
+// ----------------------------------------
+
+//
+// ----------------------------------------
+// TO KNOW:
+//
+//         FM             JAVASCRIPT
+//                      notify*() -> sendWrappedEvent()
+//  FCCalendarEvents <----------------------|
+//     |
+//     |--------???-----> Fmw_Callback()
+//
+//
+//         FM             JAVASCRIPT
+//                    FullCalendar.events -> debounced -> App.rawFetch() -> fetchEventInRange() -> fetchRecords() -> sendToFileMaker()
+//     FCCalendarFind  <-----------------------------------------------------------------------------------------------------|
+//            |
+//            |---------------- Fmw_Callback()
+//
+//
+//         FM             JAVASCRIPT
+//               ----------> Window.Calendar_Next ; Calendar_Prev ; Calendar_Today ; Calendar_Refresh
+// ----------------------------------------
+//
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_TIMEOUT_MS = 30000;
 const CALLBACK_FUNCTION_NAME = "Fmw_Callback";
-//const SESSION_STATE_KEY = "calendar.state";
-//const SESSION_CONFIG_KEY = "calendar.config";
 
 // ── Globals ─────────────────────────────────────────────────────────────────
 let addonUUID = null;
@@ -176,7 +203,6 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   //console.log("[sendToFilemaker]: start(), data: ", data);
   //console.log("[sendToFileMaker]: start(), metaOverrides: ", metaOverrides);
 
-  //const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random() // NOT IN FM GO!
   const fetchId = Date.now();
   let paramJson;
 
@@ -460,7 +486,6 @@ const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
 
 // Helper to send wrapped notifications (fire-and-forget)
 const sendWrappedEvent = (eventType, dataPayload = {}) => {
-  //const fetchId = crypto.randomUUID();
   const fetchId = Date.now();
 
   const fullParam = {
