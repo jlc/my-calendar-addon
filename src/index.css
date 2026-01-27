@@ -276,3 +276,37 @@
     opacity: 1 !important;
     background: #ffffff !important;
 }
+
+/* ==============================================
+   iOS / FileMaker Go fixes: Prevent magnifier, text selection,
+   and callout menu during long-press / drag / resize
+   ============================================== */
+
+#calendar,
+#calendar .fc,
+#calendar .fc-event,
+#calendar .fc-daygrid-event,
+#calendar .fc-timegrid-event,
+#calendar .fc-list-event,
+#calendar .fc-col-header-cell,
+#calendar .fc .fc-event-resizer {
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
+    touch-action: manipulation !important; /* Good balance: allows tap/drag, reduces gesture conflicts */
+}
+
+/* Slightly more permissive on the root container if you need vertical scrolling
+   in the WebViewer (e.g., tall calendar or portrait iPad) */
+#calendar {
+    touch-action: pan-y pinch-zoom !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+}
+
+/* Prevent accidental image/link drags (if you add any icons later) */
+#calendar img,
+#calendar a {
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}

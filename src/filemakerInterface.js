@@ -48,7 +48,7 @@ const getFirstDayOfWeek = () => {
 
 // ── Initialization ──────────────────────────────────────────────────────────
 const fmwInit = (onReady = () => {}) => {
-  console.log("FileMaker Interface.fmwInit: start");
+  console.log("FileMakerInterface.fmwInit: start");
 
   if (addonUUID) {
     onReady();
@@ -58,7 +58,7 @@ const fmwInit = (onReady = () => {}) => {
   const pollForFileMaker = setInterval(() => {
     if (!window.FileMaker) return;
 
-    console.log("filemakerInterface.fmwInit.pollForFileMaker()");
+    //console.log("filemakerInterface.fmwInit.pollForFileMaker()");
 
     clearInterval(pollForFileMaker);
 
@@ -81,7 +81,7 @@ const fmwInit = (onReady = () => {}) => {
 
     addonUUID = props.AddonUUID;
     config = props.Config || {};
-    console.log("props: ", props);
+    //console.log("props: ", props);
     //initialState = props.State || {};
 
     console.log("filemakerInterface.fmwInit.pollForFileMaker() calling onReady()");
@@ -133,7 +133,7 @@ const pendingCallbacks = new Map();
 
 // Global callback handler – make it very verbose for now
 window.Fmw_Callback = function (jsonString) {
-  console.log("[Fmw_Callback] received from FM - raw json:", jsonString);
+  //console.log("[Fmw_Callback] received from FM - raw json:", jsonString);
 
   try {
     const data = JSON.parse(jsonString);
@@ -172,9 +172,9 @@ window.Fmw_Callback = function (jsonString) {
 
 // Updated sendToFileMaker – ensure Meta is set correctly
 const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
-  console.log("[sendToFileMaker]: start(), scripName: ", scriptName);
-  console.log("[sendToFilemaker]: start(), data: ", data);
-  console.log("[sendToFileMaker]: start(), metaOverrides: ", metaOverrides);
+  //console.log("[sendToFileMaker]: start(), scripName: ", scriptName);
+  //console.log("[sendToFilemaker]: start(), data: ", data);
+  //console.log("[sendToFileMaker]: start(), metaOverrides: ", metaOverrides);
 
   //const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random() // NOT IN FM GO!
   const fetchId = Date.now();
@@ -237,30 +237,11 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   return prom;
 };
 
-/*
-const sendEvent = (dummyType, payload = {}) => {
-  // dummyType not used anymore
-  let paramJson = JSON.stringify(payload);
-
-  // Remove outer quotes if quirk adds them (keep this safety)
-  if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
-    paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
-  }
-
-  //console.log("[sendEvent] CLEAN JSON:", paramJson);
-  //console.log("[sendEvent] First 50 chars:", paramJson.substring(0, 50));
-
-  if (window.FileMaker?.PerformScript) {
-    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
-  }
-};
-*/
-
 const fetchRecords = async (findRequest) => {
   console.log("[fetchRecords]: start");
   try {
     const response = await sendToFileMaker("FCCalendarFind", findRequest);
-    console.log("[fetchRecords] Full callback response:", response);
+    //console.log("[fetchRecords] Full callback response:", response);
 
     const result = response?.response || response || {};
     const messages = Array.isArray(response?.messages) ? response.messages : [];
@@ -479,7 +460,8 @@ const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
 
 // Helper to send wrapped notifications (fire-and-forget)
 const sendWrappedEvent = (eventType, dataPayload = {}) => {
-  const fetchId = crypto.randomUUID();
+  //const fetchId = crypto.randomUUID();
+  const fetchId = Date.now();
 
   const fullParam = {
     Data: dataPayload,

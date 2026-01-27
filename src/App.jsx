@@ -15,13 +15,12 @@ if (window.__initialProps__ === undefined || window.__initialProps__ === "__PROP
     console.warn("[initializeFMProps] Placeholder not substituted → empty config");
     window.__initialProps__ = {};
 
-    window.alert("init FM Props warning placeholder not substituted");
     return;
   }
 
   // If it's ALREADY an object → we're good! (this is your current case)
   if (typeof propsValue === "object" && propsValue !== null) {
-    console.log("[initializeFMProps] __initialProps__ already set.");
+    console.warn("[initializeFMProps] __initialProps__ already set. How?");
     //window.alert("init FM Props already set");
     return; // No need to parse
   }
@@ -81,6 +80,7 @@ import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
 
 import ConfigPanel from "./ConfigPanel";
+import ErrorBoundary from "./ErrorBoundary";
 
 import {
   fmwInit,
@@ -175,6 +175,8 @@ function App() {
     if (calendarRef.current) {
       setIsCalendarReady(true); // will call again 'dayHeaderFormat'
     }
+
+    console.log("Events fetched successfully, calendar should now render");
   }, [isInitialized]);
 
   // ── 2. Dynamic event source for FullCalendar ──────────────────────────────
@@ -206,7 +208,7 @@ function App() {
         currentEvents.current = fcEvents; // Update ref for future fallbacks
         successCallback(fcEvents);
 
-        console.log("[rawFetch of events] Completed - Mapped count:", fcEvents.length, fcEvents);
+        console.log("[rawFetch of events] Completed - Mapped count:", fcEvents.length); //, fcEvents);
       } catch (error) {
         console.error("[rawFetch of events] Failed:", error);
         successCallback(currentEvents.current); // Use ref fallback
@@ -271,7 +273,9 @@ function App() {
 
   //window.alert("App - return of fullCalendar.");
 
-  return (
+  // code before use of ErrorBoundary and heavy debug
+  /*
+  const code = (
     <div style={{ height: "98vh", width: "99vw" }}>
       <FullCalendar
         ref={calendarRef}
@@ -279,44 +283,10 @@ function App() {
         initialView={mapViewName(getConfigField("StartingView", "Month"))}
         firstDay={getFirstDayOfWeek()}
         headerToolbar={
-          false /*{
-          left: "", //"prev,next today",
-          center: "title",
-          right: "", //"dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-          }*/
+          false
         }
-        // TEST: SHOULD BE en
         locale={getConfigField("Locale", "en")} // e.g. "en" or "fr"
         timeZone={getConfigField("TimeZone", "local")}
-        /*
-        dayHeaderFormat={(dateObj) => {
-          const locale = getConfigField("Locale", "en");
-
-          // Try to get real date safely
-          let realDate;
-          try {
-            realDate = dateObj.marker || dateObj.date || new Date();
-          } catch {
-            realDate = new Date();
-          }
-
-          // If not Date, fallback
-          if (!(realDate instanceof Date) || isNaN(realDate.getTime())) {
-            realDate = new Date();
-          }
-
-          const weekday = realDate.toLocaleDateString(locale, {
-            weekday: "short",
-          });
-          const day = realDate.toLocaleDateString(locale, { day: "numeric" });
-          const month = realDate.toLocaleDateString(locale, {
-            month: "numeric",
-          });
-
-          // Force Day / Month order
-          return `${weekday} ${day} / ${month}`;
-        }}
-        */
         dayHeaderFormat={{
           weekday: "short", // "Monday" or "Lundi" (full name) (or: 'long')
           day: "2-digit", // "14"
@@ -357,6 +327,81 @@ function App() {
       />
     </div>
   );
+  */
+
+  // NEW CODE WITH ErrorBoundary
+  const code = (
+    <div className="app-container">
+      {/* other UI like ConfigPanel */}
+      <ErrorBoundary>
+        <div id="calendar" style={{ height: "98vh", width: "99vw" }}>
+          {/* Add logs around the critical render */}
+          {(() => {
+            console.log("About to render FullCalendar component");
+            return (
+              <FullCalendar
+                ref={calendarRef}
+                plugins={[
+                  dayGridPlugin,
+                  timeGridPlugin,
+                  interactionPlugin,
+                  listPlugin,
+                  multiMonthPlugin,
+                ]}
+                initialView={mapViewName(getConfigField("StartingView", "Month"))}
+                firstDay={getFirstDayOfWeek()}
+                headerToolbar={false}
+                locale={getConfigField("Locale", "en")} // e.g. "en" or "fr"
+                timeZone={getConfigField("TimeZone", "local")}
+                dayHeaderFormat={{
+                  weekday: "short", // "Monday" or "Lundi" (full name) (or: 'long')
+                  day: "2-digit", // "14"
+                  month: "2-digit", // "Jan" or "janv." (ex: 'short')
+                  separator: " / ", // Custom separator
+                }}
+                allDaySlot={false}
+                editable={true}
+                eventDurationEditable={true}
+                eventResizableFromStart={true}
+                eventDragMinDistance={1}
+                dragScroll={true}
+                selectable={true}
+                selectMirror={true}
+                dayMaxEvents={true}
+                events={debouncedFetch}
+                eventClick={(info) => notifyEventClick(info.event)}
+                eventDrop={(info) => notifyEventDrop(info)}
+                eventResize={(info) => notifyEventResize(info)}
+                select={(info) => notifyDateSelect(info, calendarRef)}
+                datesSet={(info) => notifyViewChange(info.view)}
+                // Optional but recommended enhancements:
+                height="100%"
+                slotMinTime={getConfigField("DayStartTime", "08:00:00")}
+                slotMaxTime={getConfigField("DayEndTime", "20:00:00")}
+                slotDuration="00:30:00" // Each slot = 15 minutes (default: "00:30:00")
+                slotLabelInterval="01:00:00" // Show time labels every 1 hour (default: "00:30:00")
+                slotLabelFormat={{
+                  hour: "2-digit", // 08, 09, 20, etc.
+                  minute: "2-digit", // 00, 30, etc.
+                  hour12: false, // 24-hour format (no am/pm)
+                }}
+                snapDuration="00:30:00" // Snap selections to 15-minute increments // The time interval at which a dragged event will snap to the time axis.
+                // ... rest of your props
+                // You can add more later: eventContent, custom eventDidMount for tooltips, etc.
+                eventMinHeight={13} // Slightly higher than 18 → better readability
+                slotEventOverlap={false} // ← Disable visual overlap (clean stacking)
+              />
+            );
+          })()}
+
+          {calendarRef.current &&
+            console.log("FullCalendar ref exists after mount → ready to call render if needed")}
+        </div>
+      </ErrorBoundary>
+    </div>
+  );
+
+  return code;
 }
 
 //{/* Initial header (optional) */}
