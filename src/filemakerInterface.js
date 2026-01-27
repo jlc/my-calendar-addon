@@ -1,6 +1,6 @@
 // filemakerInterface.js
 
-import { v4 as uuidv4 } from "uuid";
+//import { v4 as uuidv4 } from "uuid";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -79,7 +79,7 @@ const fmwInit = (onReady = () => {}) => {
       return;
     }
 
-    addonUUID = props.AddonUUID || uuidv4();
+    addonUUID = props.AddonUUID;
     config = props.Config || {};
     console.log("props: ", props);
     //initialState = props.State || {};
@@ -107,7 +107,10 @@ const setupWindowFunctions = (calendarRef) => {
     api()?.render();
   };
   window.Calendar_SetView = (viewName) => api()?.changeView(mapViewName(viewName));
-  window.Calendar_Next = () => api()?.next();
+  window.Calendar_Next = () => {
+    console.log("[window.Calendar_Next]:");
+    api()?.next();
+  };
   window.Calendar_Prev = () => api()?.prev();
   window.Calendar_Today = () => api()?.today();
   window.Calendar_GotoDate = (dateStr) => {
@@ -130,7 +133,7 @@ const pendingCallbacks = new Map();
 
 // Global callback handler – make it very verbose for now
 window.Fmw_Callback = function (jsonString) {
-  console.log("[Fmw_Callback] raw json:", jsonString);
+  console.log("[Fmw_Callback] received from FM - raw json:", jsonString);
 
   try {
     const data = JSON.parse(jsonString);
@@ -169,13 +172,15 @@ window.Fmw_Callback = function (jsonString) {
 
 // Updated sendToFileMaker – ensure Meta is set correctly
 const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
-  console.log("[sendToFileMaker]: start()");
+  console.log("[sendToFileMaker]: start(), scripName: ", scriptName);
+  console.log("[sendToFilemaker]: start(), data: ", data);
+  console.log("[sendToFileMaker]: start(), metaOverrides: ", metaOverrides);
+
+  //const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random() // NOT IN FM GO!
+  const fetchId = Date.now();
+  let paramJson;
+
   try {
-    //const fetchId = crypto.randomUUID(); // or Date.now().toString() + Math.random()
-    const fetchId = 42;
-
-    console.log("[sendToFileMaker]: after fetchdi()");
-
     const fullParam = {
       Data: data,
       Meta: {
@@ -187,9 +192,8 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
       },
     };
 
-    console.log("[sendToFileMaker]: after fullParam()");
-    const paramJson = JSON.stringify(fullParam);
-    console.log("[sendToFileMaker]: after JSON(), paramJson", paramJson);
+    paramJson = JSON.stringify(fullParam);
+    //console.log("[sendToFileMaker]: after JSON(), paramJson", paramJson);
     /*console.log(
       `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
       fetchId,
@@ -202,7 +206,6 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   }
 
   let prom = null;
-  console.log("[sendToFileMaker]: after prom = null");
 
   try {
     prom = new Promise((resolve, reject) => {
@@ -234,6 +237,7 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
   return prom;
 };
 
+/*
 const sendEvent = (dummyType, payload = {}) => {
   // dummyType not used anymore
   let paramJson = JSON.stringify(payload);
@@ -250,6 +254,7 @@ const sendEvent = (dummyType, payload = {}) => {
     window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
   }
 };
+*/
 
 const fetchRecords = async (findRequest) => {
   console.log("[fetchRecords]: start");
