@@ -390,6 +390,9 @@ function App() {
                 // You can add more later: eventContent, custom eventDidMount for tooltips, etc.
                 eventMinHeight={13} // Slightly higher than 18 → better readability
                 slotEventOverlap={false} // ← Disable visual overlap (clean stacking)
+                // For iPadOS rendering
+                longPressDelay={300} // Default is 1000ms → lower to 300–500ms for faster response on touch
+                eventLongPressDelay={300} // Specifically for events (drag/resize initiation)
               />
             );
           })()}
