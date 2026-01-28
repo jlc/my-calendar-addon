@@ -22,7 +22,8 @@ export default defineConfig({
 
     // Optional but recommended for smallest single file
     minify: "esbuild", // or false if you want readable output
-    target: "es2015", // or esnext — your choice // es2020
+    //target: "es2015", // or esnext — your choice // es2020
+    target: "es2020", // or esnext — your choice // es2020
     sourcemap: false, // usually no need in single-file usecase
 
     cssCodeSplit: false,
@@ -30,6 +31,6 @@ export default defineConfig({
   },
   // Force modern but compatible syntax
   esbuild: {
-    target: "es2015",
+    target: "es2020",
   },
 });
