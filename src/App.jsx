@@ -20,7 +20,7 @@ if (window.__initialProps__ === undefined || window.__initialProps__ === "__PROP
 
   // If it's ALREADY an object → we're good! (this is your current case)
   if (typeof propsValue === "object" && propsValue !== null) {
-    console.warn("[initializeFMProps] __initialProps__ already set. How?");
+    console.log("[initializeFMProps] __initialProps__ already set. How?");
     //window.alert("init FM Props already set");
     return; // No need to parse
   }
@@ -115,9 +115,6 @@ function App() {
   // ── 1. Initialize FileMaker interface once on mount ───────────────────────
   useEffect(() => {
     if (isInitialized) return;
-    console.log("[useEffect] Init...");
-
-    //window.alert("App.useEffect: init...");
 
     // Silence FileMaker's legacy auto-call attempts
     window.Calendar_Refresh = () => {};
@@ -176,7 +173,7 @@ function App() {
       setIsCalendarReady(true); // will call again 'dayHeaderFormat'
     }
 
-    console.log("Events fetched successfully, calendar should now render");
+    //console.log("Events fetched successfully, calendar should now render");
   }, [isInitialized]);
 
   // ── 2. Dynamic event source for FullCalendar ──────────────────────────────
@@ -337,7 +334,7 @@ function App() {
         <div id="calendar" style={{ height: "98vh", width: "99vw" }}>
           {/* Add logs around the critical render */}
           {(() => {
-            console.log("About to render FullCalendar component");
+            //console.log("About to render FullCalendar component");
             return (
               <FullCalendar
                 ref={calendarRef}

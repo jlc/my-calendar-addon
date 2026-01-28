@@ -75,7 +75,7 @@ const getFirstDayOfWeek = () => {
 
 // ── Initialization ──────────────────────────────────────────────────────────
 const fmwInit = (onReady = () => {}) => {
-  console.log("FileMakerInterface.fmwInit: start");
+  //console.log("FileMakerInterface.fmwInit: start");
 
   if (addonUUID) {
     onReady();
@@ -111,7 +111,7 @@ const fmwInit = (onReady = () => {}) => {
     //console.log("props: ", props);
     //initialState = props.State || {};
 
-    console.log("filemakerInterface.fmwInit.pollForFileMaker() calling onReady()");
+    //console.log("filemakerInterface.fmwInit.pollForFileMaker() calling onReady()");
     onReady();
     return;
   }, 80);
@@ -135,7 +135,7 @@ const setupWindowFunctions = (calendarRef) => {
   };
   window.Calendar_SetView = (viewName) => api()?.changeView(mapViewName(viewName));
   window.Calendar_Next = () => {
-    console.log("[window.Calendar_Next]:");
+    //console.log("[window.Calendar_Next]:");
     api()?.next();
   };
   window.Calendar_Prev = () => api()?.prev();
@@ -177,17 +177,23 @@ window.Fmw_Callback = function (jsonString) {
       //  fetchId,
       //);
     } else if (!fetchId) {
-      console.warn("[Fmw_Callback] No FetchId and multiple/no pending → ignoring");
+      console.warn(
+        "[Fmw_Callback] No FetchId and multiple/no pending → ignoring, FetchId: ",
+        fetchId,
+      );
       return;
     }
 
     if (pendingCallbacks.has(fetchId)) {
       const { resolve, reject } = pendingCallbacks.get(fetchId);
-      if (data.messages?.some((m) => m.code !== "0" && m.code !== "OK")) {
+
+      // if errors and not 401 ("no records match the request")
+      if (data.messages?.some((m) => m.code !== "0" && m.code !== "OK" && m.code !== "401")) {
         reject(new Error(`FM error: ${JSON.stringify(data.messages)}`));
       } else {
         resolve(data);
       }
+
       pendingCallbacks.delete(fetchId);
     } else {
       console.warn("[Fmw_Callback] No pending promise for FetchId:", fetchId);
@@ -264,7 +270,7 @@ const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
 };
 
 const fetchRecords = async (findRequest) => {
-  console.log("[fetchRecords]: start");
+  //console.log("[fetchRecords]: start");
   try {
     const response = await sendToFileMaker("FCCalendarFind", findRequest);
     //console.log("[fetchRecords] Full callback response:", response);
@@ -293,20 +299,8 @@ const fetchRecords = async (findRequest) => {
       data: result.data || [],
     };
   } catch (err) {
-    // Handle 401 inside catch (if promise rejects on 401)
-    if (
-      err?.message?.includes("401") ||
-      err?.message?.includes("No records match the request") ||
-      err?.code === "401" ||
-      err?.response?.messages?.some?.((msg) => msg?.code === "401" || msg?.code === 401)
-    ) {
-      /*console.log(
-        "[fetchRecords] No records found (401 in catch) - returning empty array",
-      );*/
-    } else {
-      // Real errors (network, timeout, etc.) - log in red
-      console.error("[fetchRecords] Real failure (not 401):", err);
-    }
+    // 401 errors (no record match handled in Fmw_Callback)
+    console.error("[fetchRecords] Real failure (not 401):", err);
     return { dataInfo: {}, data: [] };
   }
 };
@@ -360,8 +354,6 @@ const fetchEventsInRange = async (startStr, endStr) => {
 
   try {
     const result = await fetchRecords(findRequest);
-
-    //console.log("[fetchEventsInRange] Full result from fetchRecords:", result);
 
     // Depending on what fetchRecords returns, unwrap appropriately
     const records = result?.response?.data || result?.data || [];

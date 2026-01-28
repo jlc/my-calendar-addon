@@ -16,6 +16,22 @@ const levelColors = {
 
 // Core logging function (appends to panel + optional browser console fallback)
 function appendToPanel(level, ...args) {
+  // Forward to real browser console (remove if unwanted, e.g., for production)
+  const originalConsole = window.originalConsole || console;
+  originalConsole[level](...args);
+
+  // Format arguments (handle objects)
+  const message = args
+    .map((arg) =>
+      typeof arg === "object" && arg !== null ? JSON.stringify(arg, null, 2) : String(arg),
+    )
+    .join(" ");
+
+  if (level === "error") {
+    window.alert("ERROR: " + message);
+  }
+
+  // The log console may be in comments
   // Lazy-init the container reference (safe for early logs before DOM ready)
   if (!logContainer) {
     logContainer = document.getElementById("log-panel");
@@ -26,15 +42,6 @@ function appendToPanel(level, ...args) {
   const lvl = level.toUpperCase().padEnd(5);
   const color = levelColors[level] || "#e0e0e0";
 
-  // Format arguments (handle objects)
-  const message = args
-    .map((arg) =>
-      typeof arg === "object" && arg !== null ? JSON.stringify(arg, null, 2) : String(arg),
-    )
-    .join(" ");
-
-  //window.alert(message);
-
   // HTML line with <br> for multi-line
   const line =
     `<span style="color:#777;">${time}</span> ` +
@@ -44,10 +51,6 @@ function appendToPanel(level, ...args) {
   // Append and auto-scroll
   logContainer.insertAdjacentHTML("beforeend", line);
   logContainer.scrollTop = logContainer.scrollHeight;
-
-  // Optional: Forward to real browser console (remove if unwanted, e.g., for production)
-  const originalConsole = window.originalConsole || console;
-  originalConsole[level](...args);
 }
 
 // Custom console object
