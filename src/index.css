@@ -20,6 +20,7 @@
     padding: 4px 4px; /* Less padding = smaller feel */
     background: #ffffff; /* Pure white for contrast */
     border-bottom: none !important; /* Remove underline */
+    text-transform: capitalize !important;
 }
 
 /* Row headers (time slots) */
@@ -44,6 +45,34 @@
 .fc .fc-timegrid-slot {
     border-bottom: 1px solid #f0f0f0;
 }
+
+/*
+ * Thicker slot lines
+ */
+
+/* Thick major hour lines at the START of each hour (top border of major slots) */
+.fc .fc-timegrid-slot:not(.fc-timegrid-slot-minor) {
+    border-top: 1px solid var(--fc-border-color, #ddd) !important; /* adjust thickness/color as needed, e.g. 3px #333 */
+    border-bottom: 0 !important; /* remove or thin the bottom to avoid double lines */
+}
+
+/* Keep minor slots subtle (half-hour etc.) with thin dotted top/bottom if desired */
+.fc .fc-timegrid-slot.fc-timegrid-slot-minor {
+    border-top: 1px dotted var(--fc-border-color, #ccc) !important;
+    border-bottom: 0 !important; /* minors usually have no bottom border by default */
+}
+
+/* Optional: Ensure the very first slot (at slotMinTime, e.g. 07:00) has no top border or thin one, to avoid extra line at top */
+.fc .fc-timegrid-slot:first-child {
+    border-top: 1px solid var(--fc-border-color, #ddd) !important; /* or 0 if you want no top line at all */
+}
+
+/* If you still see faint double lines or misalignment, force consistent borders */
+.fc .fc-timegrid-slot {
+    border-bottom: none !important; /* prevent any residual bottom borders */
+}
+
+/* ************** */
 
 /* Event container */
 .fc-event {

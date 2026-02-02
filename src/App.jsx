@@ -357,6 +357,8 @@ function App() {
                   separator: " / ", // Custom separator
                 }}
                 allDaySlot={false}
+                nowIndicator={true}
+                nowIndicatorSnap={true}
                 editable={true}
                 eventDurationEditable={true}
                 eventResizableFromStart={true}
