@@ -1,14 +1,6 @@
 // filemakerInterface.js
 
 // ----------------------------------------
-//
-// TODO: TODO: TODO:
-// use fm-gofer instead of current Promise() -> call FileMaker
-// https://github.com/jwillinghalpern/fm-gofer/tree/master
-//
-// ----------------------------------------
-
-//
 // ----------------------------------------
 // TO KNOW:
 //
@@ -16,24 +8,30 @@
 //                      notify*() -> sendWrappedEvent()
 //  FCCalendarEvents <----------------------|
 //     |
-//     |--------???-----> Fmw_Callback()
+//     |----------------> fm-Gofer temporary function -> promise -> OK (except timeout)
+//
 //
 //
 //         FM             JAVASCRIPT
 //                    FullCalendar.events -> debounced -> App.rawFetch() -> fetchEventInRange() -> fetchRecords() -> sendToFileMaker()
 //     FCCalendarFind  <-----------------------------------------------------------------------------------------------------|
 //            |
-//            |---------------- Fmw_Callback()
+//            |---------------- fm-Goffer temporary function -> promise -> payload
 //
 //
 //         FM             JAVASCRIPT
 //               ----------> Window.Calendar_Next ; Calendar_Prev ; Calendar_Today ; Calendar_Refresh
+//
+//
 // ----------------------------------------
 //
 
+import FMGofer from "fm-gofer";
+import debounce from "lodash.debounce";
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_TIMEOUT_MS = 30000;
-const CALLBACK_FUNCTION_NAME = "Fmw_Callback";
+const DEFAULT_DEBOUNCE_TIME_MS = 500; // shorter -> more reactive
 
 // ── Globals ─────────────────────────────────────────────────────────────────
 let addonUUID = null;
@@ -124,10 +122,12 @@ const setupWindowFunctions = (calendarRef) => {
   window.Calendar_Refresh = () => {
     console.log("[Calendar_Refresh] Refreshing calendar.");
 
-    // Clear lingering selection mirror (deep blue square)
+    // // Clear lingering selection mirror (deep blue square)
+    // BUT: called here, refresh() is called frequently and the hover does not work (without pressing Option)
     api()?.unselect();
 
     // Refetch events to reflect FM updates (auto end time, etc.)
+    // (maybe, if triggered intensively, it can be debounced)
     api()?.refetchEvents();
 
     // Optional: Force full visual refresh (safe if refetch alone doesn't clear)
@@ -152,160 +152,105 @@ const setupWindowFunctions = (calendarRef) => {
 };
 
 // ── Core communication functions ────────────────────────────────────────────
+// eg. Fetch events from FileMake
 
-// In filemakerInterface.js (global scope or top-level)
+const sendToFileMaker = async (
+  scriptName,
+  data = {},
+  metaOverrides = {},
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+) => {
+  // Build the same payload structure your FM scripts already expect
+  const param = {
+    Data: data,
+    Meta: {
+      AddonUUID: addonUUID,
+      Config: config,
+      ...metaOverrides,
+    },
+  };
 
-// Pending promises map – use FetchId as key
-const pendingCallbacks = new Map();
-
-// Global callback handler – make it very verbose for now
-window.Fmw_Callback = function (jsonString) {
-  //console.log("[Fmw_Callback] received from FM - raw json:", jsonString);
-
-  try {
-    const data = JSON.parse(jsonString);
-    //console.log("[Fmw_Callback] Parsed:", data);
-
-    // Try to find FetchId in multiple possible locations (robust)
-    let fetchId = data?.Meta?.FetchId || data?.fetchId || data?.FetchId || data?.Meta?.fetchId;
-
-    // If not found and there's exactly one pending request → assume it's for that one
-    if (!fetchId && pendingCallbacks.size === 1) {
-      fetchId = Array.from(pendingCallbacks.keys())[0];
-      //console.log(
-      //  "[Fmw_Callback] Fallback: single pending request → using",
-      //  fetchId,
-      //);
-    } else if (!fetchId) {
-      console.warn(
-        "[Fmw_Callback] No FetchId and multiple/no pending → ignoring, FetchId: ",
-        fetchId,
-      );
-      return;
-    }
-
-    if (pendingCallbacks.has(fetchId)) {
-      const { resolve, reject } = pendingCallbacks.get(fetchId);
-
-      // if errors and not 401 ("no records match the request")
-      if (data.messages?.some((m) => m.code !== "0" && m.code !== "OK" && m.code !== "401")) {
-        reject(new Error(`FM error: ${JSON.stringify(data.messages)}`));
-      } else {
-        resolve(data);
-      }
-
-      pendingCallbacks.delete(fetchId);
-    } else {
-      console.warn("[Fmw_Callback] No pending promise for FetchId:", fetchId);
-    }
-  } catch (err) {
-    console.error("[Fmw_Callback] Parse failed:", err);
-  }
-};
-
-// Updated sendToFileMaker – ensure Meta is set correctly
-const sendToFileMaker = async (scriptName, data = {}, metaOverrides = {}) => {
-  //console.log("[sendToFileMaker]: start(), scripName: ", scriptName);
-  //console.log("[sendToFilemaker]: start(), data: ", data);
-  //console.log("[sendToFileMaker]: start(), metaOverrides: ", metaOverrides);
-
-  const fetchId = Date.now();
-  let paramJson;
+  const paramJson = JSON.stringify(param);
 
   try {
-    const fullParam = {
-      Data: data,
-      Meta: {
-        AddonUUID: window.__initialProps__?.AddonUUID || "F84BA49F-913B-4818-9C3D-5CDAEC10CA6D",
-        FetchId: fetchId,
-        Callback: "Fmw_Callback",
-        Config: config,
-        ...metaOverrides,
-      },
-    };
-
-    paramJson = JSON.stringify(fullParam);
-    //console.log("[sendToFileMaker]: after JSON(), paramJson", paramJson);
-    /*console.log(
-      `[sendToFileMaker] Calling ${scriptName} with FetchId:`,
-      fetchId,
-      "Param:",
-      fullParam,
-    );*/
-  } catch (err) {
-    console.error("[sendToFileMaker]: exception at start of sendToFilemaker, err:", err);
-    return null;
-  }
-
-  let prom = null;
-
-  try {
-    prom = new Promise((resolve, reject) => {
-      pendingCallbacks.set(fetchId, { resolve, reject });
-
-      if (window.FileMaker?.PerformScript) {
-        window.FileMaker.PerformScript(scriptName, paramJson);
-      } else {
-        reject(new Error("FileMaker.PerformScript not available"));
-      }
-
-      // Timeout safeguard
-      setTimeout(() => {
-        if (pendingCallbacks.has(fetchId)) {
-          pendingCallbacks.delete(fetchId);
-          reject(new Error(`Timeout waiting for callback from ${scriptName}`));
-        }
-      }, 30000); // 30s – adjust if your finds are slow
-    });
-  } catch (err) {
-    console.error(
-      "[sendToFileMaker] exception while promising to call window.FileMaker.PerformScript: ",
+    // fm-gofer will:
+    // - generate promiseID + callbackName="FMGoferCallback"
+    // - wrap your paramJson into { promiseID, callbackName, parameter: paramJson }
+    // - call FileMaker.PerformScript(scriptName, thatWrappedJSON)
+    const rawResult = await FMGofer.PerformScript(
       scriptName,
+      paramJson, // your original JSON payload
+      timeoutMs, // e.g. 30000
+      `sendToFileMaker: Timeout waiting for ${scriptName}`,
     );
 
-    prom = null;
-  }
+    // rawResult is whatever string the FM script passed in the 2nd param of Perform JavaScript
+    // (your current scripts pass a JSON string → we can parse it)
+    let response;
+    try {
+      response = JSON.parse(rawResult);
+    } catch (parseErr) {
+      console.warn(`[sendToFileMaker] Result from ${scriptName} not valid JSON:`, rawResult);
+      response = { response: { data: [], dataInfo: {} }, messages: [] };
+    }
 
-  return prom;
-};
-
-const fetchRecords = async (findRequest) => {
-  //console.log("[fetchRecords]: start");
-  try {
-    const response = await sendToFileMaker("FCCalendarFind", findRequest);
-    //console.log("[fetchRecords] Full callback response:", response);
-
-    const result = response?.response || response || {};
     const messages = Array.isArray(response?.messages) ? response.messages : [];
 
-    // Handle 401 inside try (if promise resolves with error)
-    if (messages.some((msg) => msg?.code === "401" || msg?.code === 401)) {
-      console.log("[fetchRecords] No records found (401 in messages) - returning empty array");
-      return { dataInfo: {}, data: [] };
-    }
-
-    // Check for other error codes in messages
-    const errorMsg = messages.find(
-      (msg) => msg?.code !== "0" && msg?.code !== "401" && msg?.code !== 0,
+    // Let FM return any code/message — we handle 401 here as success/empty
+    const has401 = messages.some(
+      (msg) => msg?.code === "401" || msg?.code === 401 || msg?.code === 401,
     );
-    if (errorMsg) {
-      console.error("[fetchRecords] FM returned non-401 error:", errorMsg);
+    if (has401) {
+      console.log(`[sendToFileMaker → ${scriptName}] 401 detected – treating as empty results`);
       return { dataInfo: {}, data: [] };
     }
 
-    // Success case
+    // Check for real errors (non-0, non-401)
+    const errorMsg = messages.find((msg) => {
+      const code = msg?.code;
+      return code !== "0" && code !== 0 && code !== "401" && code !== 401;
+    });
+
+    if (errorMsg) {
+      throw new Error(
+        `[sendToFileMaker -> ${scriptName}]: Error calling FM and/or its results: ${JSON.stringify(errorMsg)}`,
+      );
+    }
+
+    // Success path
     return {
-      dataInfo: result.dataInfo || {},
-      data: result.data || [],
+      dataInfo: response?.response?.dataInfo || {},
+      data: response?.response?.data || [],
     };
   } catch (err) {
-    // 401 errors (no record match handled in Fmw_Callback)
-    console.error("[fetchRecords] Real failure (not 401):", err);
+    // Catches:
+    // - timeout rejection from fm-gofer
+    // - explicit reject from FM (3rd param = True)
+    // - parse errors or thrown errors above
+    console.error(`[sendToFileMaker → ${scriptName}]: Exception FM <-> Callback: `, err);
+    return { dataInfo: {}, data: [] }; // Graceful fallback like before
+  }
+};
+
+// fetchRecords stays almost the same — just remove the old 401 handling since it's now in sendToFileMaker
+const fetchRecords = async (findRequest) => {
+  try {
+    return await sendToFileMaker("FCCalendarFind", findRequest);
+  } catch (err) {
+    console.error("[fetchRecords] Unexpected outer error:", err);
     return { dataInfo: {}, data: [] };
   }
 };
 
+// let isFetchingEventsInRange = false;
+
 const fetchEventsInRange = async (startStr, endStr) => {
+  // if (isFetchingEventsInRange) {
+  //   console.log("[fetchEventsInRange] Already fetching -> skipping duplicate call");
+  //   return [];
+  // }
+  // isFetchingEventsInRange = true;
+
   const startDate = new Date(startStr);
   const endDate = new Date(endStr);
 
@@ -363,12 +308,14 @@ const fetchEventsInRange = async (startStr, endStr) => {
       return [];
     }
 
-    console.log(`[fetchEventsInRange] Received ${records.length} raw records`);
+    console.log(`[fetchEventsInRange] (${records.length}) Events from FM received`);
 
     return records;
   } catch (err) {
     console.error("[fetchEventsInRange] fetchRecords failed:", err);
     return [];
+  } finally {
+    // isFetchingEventsInRange = false;
   }
 };
 
@@ -476,43 +423,49 @@ const parseFMDateTime = (dateStr, timeStr = "00:00:00") => {
 
 // ── Event notify ────────────────────────────────────────────────────────────
 
-// Helper to send wrapped notifications (fire-and-forget)
-const sendWrappedEvent = (eventType, dataPayload = {}) => {
-  const fetchId = Date.now();
-
+// Fire-and-forget version using fm-gofer
+// Yet, as now we expect a callback from Filemaker (not fire-and-forget anymore), we display the error.
+const _sendWrappedEvent = (eventType, dataPayload = {}) => {
   const fullParam = {
     Data: dataPayload,
     Meta: {
       EventType: eventType,
       AddonUUID: addonUUID || window.__initialProps__?.AddonUUID,
-      FetchId: fetchId,
-      Callback: "Fmw_Callback",
       Config: config,
+      // Note: No Callback or FetchId needed — FM script doesn't use them
+      //FetchId: fetchId,
+      //Callback: "Fmw_Callback",
     },
   };
 
-  let paramJson = JSON.stringify(fullParam);
+  const paramJson = JSON.stringify(fullParam);
 
-  // Remove outer quotes if quirk adds them
-  if (paramJson.startsWith('"') && paramJson.endsWith('"')) {
-    paramJson = paramJson.slice(1, -1).replace(/\\"/g, '"');
-  }
-
-  /*console.log(
-    "[sendWrappedEvent] Sending for",
-    eventType,
-    ":",
-    paramJson.substring(0, 100) + "...",
-  );*/
-
-  if (window.FileMaker?.PerformScript) {
-    window.FileMaker.PerformScript("FCCalendarEvents", paramJson);
-  } else {
-    console.warn("[sendWrappedEvent] FileMaker.PerformScript not available");
-  }
+  // Fire and forget: call but don't await, just log/catch errors
+  FMGofer.PerformScript(
+    "FCCalendarEvents",
+    paramJson,
+    9, // timeout in ms
+    `[sendWrappedEvent] '${eventType}' Fired and forgetted`,
+  )
+    .then(() => {
+      // Do nothing, fired and forgetted.
+      //console.debug(`[sendWrappedEvent] '${eventType}' FM event sent`);
+    })
+    .catch((err) => {
+      // NOTE: DOESN'T MATTER!
+      // Silent fail — typical for fire-and-forget (FM did its job or timed out harmlessly)
+      // Could log if debugging: console.warn(`[sendWrappedEvent ${eventType}] ignored:`, err.message);
+      //console.log(`[sendWrappedEvent] ${eventType}: Error or Timeout (all good): `, err);
+      // contains 'fired and forgetted' or another error
+      console.log(err);
+    });
 };
 
-// Updated notify functions (complete & fixed to match script EventTypes and params)
+// Debounce sendWrappedEvent
+const sendWrappedEvent = debounce(_sendWrappedEvent, DEFAULT_DEBOUNCE_TIME_MS, {
+  leading: true, // fire immediately -> more responsive
+  trailing: true, // fire the last one
+});
 
 // Event Click (already working, but consistent with wrapper)
 const notifyEventClick = (event) => {
@@ -565,34 +518,19 @@ const notifyDateSelect = (info, calendarRef) => {
   let adjustedStart = new Date(info.start);
   let adjustedEnd = new Date(info.end);
 
+  // --
+  // Snapping to previous last event
+  // --
+
   const calendarApi = calendarRef?.current?.getApi();
   if (calendarApi) {
     const allEvents = calendarApi.getEvents();
-
-    console.log("[notifyDateSelect] All events on day:", allEvents.length);
 
     // Filter same-day, non-all-day events that end within the clicked slot (overlap or middle end)
     const endingInSlotEvents = allEvents.filter((event) => {
       const sameDay = new Date(event.start).toDateString() === adjustedStart.toDateString();
       const endsInSlot = event.end > adjustedStart && event.end < adjustedEnd; // Ends after slot start and before slot end
       const isAllDay = event.allDay;
-
-      /* console.log(
-        "[notifyDateSelect] Checking event:",
-        event.id,
-        "sameDay:",
-        sameDay,
-        "endsInSlot:",
-        endsInSlot,
-        "allDay:",
-        isAllDay,
-        "event.end:",
-        event.end.toISOString(),
-        "adjustedStart:",
-        adjustedStart.toISOString(),
-        "adjustedEnd:",
-        adjustedEnd.toISOString(),
-      ); */
 
       return sameDay && !isAllDay && endsInSlot;
     });
@@ -611,6 +549,7 @@ const notifyDateSelect = (info, calendarRef) => {
       console.log("[notifyDateSelect] No event ending in slot - using slot start");
     }
   }
+  // -- End of snapping
 
   // 60-minute duration
   adjustedEnd = new Date(adjustedStart.getTime() + 60 * 60 * 1000);
@@ -659,12 +598,15 @@ const notifyDateSelect = (info, calendarRef) => {
     editable: 1,
   };
 
-  window.Calendar_Refresh?.();
-
   sendWrappedEvent("NewEventFromSelected", dataPayload);
+
+  // NOTE: Refetch events -> call FM:FCCalendarFind
+  // To remove residual effect of default visit created
+  // Let FM do it
+  // window.Calendar_Refresh?.();
 };
 
-const notifyEventDrop = (info) => {
+const notifyEventDrop = (info, calendarRef) => {
   //window.alert("filemakerInterface.notifyEventDrops()");
 
   if (!info?.event?.id) {
@@ -677,6 +619,48 @@ const notifyEventDrop = (info) => {
   // Use local Date objects
   let adjustedStart = info.event.start;
   let adjustedEnd = info.event.end;
+
+  // --
+  // Snapping to previous last event
+  // --
+
+  const adjustedDuration = adjustedEnd - adjustedStart;
+
+  const calendarApi = calendarRef?.current?.getApi();
+  if (calendarApi) {
+    const allEvents = calendarApi.getEvents();
+
+    // Filter same-day, non-all-day events that end within the clicked slot (overlap or middle end)
+    const endingInSlotEvents = allEvents.filter((event) => {
+      const sameDay = new Date(event.start).toDateString() === adjustedStart.toDateString();
+      const endsInSlot = event.end > adjustedStart && event.end < adjustedEnd; // Ends after slot start and before slot end
+      const isAllDay = event.allDay;
+
+      return sameDay && !isAllDay && endsInSlot;
+    });
+
+    if (endingInSlotEvents.length > 0) {
+      // Snap to the latest-ending event in the slot
+      const previousEvent = endingInSlotEvents.sort((a, b) => b.end - a.end)[0];
+
+      console.log(
+        "[notifyEventDrop] Ending in slot found, snapping start to:",
+        previousEvent.end.toLocaleString(),
+      );
+
+      adjustedStart = new Date(previousEvent.end.getTime());
+    } else {
+      console.log("[notifyEventDrop] No event ending in slot - using slot start");
+    }
+  }
+
+  if (adjustedDuration > 0) {
+    adjustedEnd = new Date(adjustedStart.getTime() + adjustedDuration);
+  } else {
+    // fallback to 60-minute duration
+    adjustedEnd = new Date(adjustedStart.getTime() + 60 * 60 * 1000);
+  }
+  // -- end of snapping calculation
 
   const locale = getConfigField("Locale", "en");
 
@@ -719,8 +703,9 @@ const notifyEventDrop = (info) => {
 
   sendWrappedEvent("EventDropped", dataPayload);
 
-  // Optional: force immediate refetch to see the change faster
-  window.Calendar_Refresh?.();
+  // NOTE: EventDropped does not open any window, good to refresh now.
+  // Let FM do it.
+  // window.Calendar_Refresh?.();
 };
 
 // Event Resize (uses "EventResized", send new end date/time and field names)
@@ -782,8 +767,9 @@ const notifyEventResize = (info) => {
 
   sendWrappedEvent("EventResized", dataPayload);
 
-  // Optional: force immediate refetch to see the change faster
-  window.Calendar_Refresh?.();
+  // NOTE: EventResized does not open any window, good to refresh now.
+  // Let FM do it
+  // window.Calendar_Refresh?.();
 };
 
 export {
@@ -800,6 +786,7 @@ export {
   mapViewName,
   getFirstDayOfWeek,
   resolveFieldName,
+  sendWrappedEvent,
 };
 
 // ---------------------------------------------------------------------------------------

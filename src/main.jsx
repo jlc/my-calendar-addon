@@ -27,9 +27,9 @@ function appendToPanel(level, ...args) {
     )
     .join(" ");
 
-  if (level === "error") {
-    window.alert("ERROR: " + message);
-  }
+  /* if (level === "error") {
+    window.alert("Error log: \n" + message);
+    } */
 
   // The log console may be in comments
   // Lazy-init the container reference (safe for early logs before DOM ready)

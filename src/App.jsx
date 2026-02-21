@@ -68,13 +68,15 @@ window.fmwConfigChangeCallback = (result = null, fetchId = null) => {
  * Now start the React App
  */
 
-import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react"; // remove useMemo
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import multiMonthPlugin from "@fullcalendar/multimonth";
+
+import debounce from "lodash.debounce";
 
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
@@ -96,10 +98,10 @@ import {
   mapViewName,
   getFirstDayOfWeek,
   resolveFieldName,
+  sendWrappedEvent,
 } from "./filemakerInterface";
 
-// src/App.jsx
-// (Keep the top initialization script and imports unchanged)
+const DEFAULT_DEBOUNCE_TIME_MS = 600; // longer to avoid overloading FM
 
 /*
  * The App()
@@ -174,7 +176,7 @@ function App() {
     }
 
     //console.log("Events fetched successfully, calendar should now render");
-  }, [isInitialized]);
+  }, [isInitialized, calendarRef]);
 
   // ── 2. Dynamic event source for FullCalendar ──────────────────────────────
   // 1. Define the raw async fetch (useCallback to memoize, no deps needed now)
@@ -205,7 +207,7 @@ function App() {
         currentEvents.current = fcEvents; // Update ref for future fallbacks
         successCallback(fcEvents);
 
-        console.log("[rawFetch of events] Completed - Mapped count:", fcEvents.length); //, fcEvents);
+        //console.log("[rawFetch of events] Completed - Mapped count:", fcEvents.length); //, fcEvents);
       } catch (error) {
         console.error("[rawFetch of events] Failed:", error);
         successCallback(currentEvents.current); // Use ref fallback
@@ -214,18 +216,32 @@ function App() {
     [], // No dependencies → stable across renders
   );
 
-  //window.alert("App - rawFetch defined.");
-
   // 2. Create a debounced version (memoized so it doesn't recreate on render)
-  const debouncedFetch = useMemo(() => {
-    let timeoutId;
-    return (fetchInfo, success, failure) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => rawFetch(fetchInfo, success, failure), 500);
-    };
-  }, [rawFetch]);
+  const debouncedFetch = useCallback(
+    debounce(
+      (fetchInfo, success, failure) => {
+        rawFetch(fetchInfo, success, failure);
+      },
+      DEFAULT_DEBOUNCE_TIME_MS,
+      {
+        leading: true, // normally more responsive
+        trailing: true,
+      },
+    ),
+    [rawFetch],
+  );
 
-  //window.alert("App - debouncedFetch defined.");
+  // ── Separate cleanup for debounce ───────────────────────────────────────
+  // (We can have serval useEffect(), even recommended)
+  useEffect(() => {
+    return () => {
+      debouncedFetch.cancel();
+      sendWrappedEvent.cancel();
+
+      // Optional: flush if you want the last pending call to run anyway
+      // debouncedFetch.flush();
+    };
+  }, [debouncedFetch]); // Note: no need to depend on sendWrappedEvent (it's stable/module-level)
 
   // ── 3. Render ─────────────────────────────────────────────────────────────
   if (!isInitialized) {
@@ -268,70 +284,12 @@ function App() {
     );
   }
 
-  //window.alert("App - return of fullCalendar.");
-
-  // code before use of ErrorBoundary and heavy debug
-  /*
-  const code = (
-    <div style={{ height: "98vh", width: "99vw" }}>
-      <FullCalendar
-        ref={calendarRef}
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin, multiMonthPlugin]}
-        initialView={mapViewName(getConfigField("StartingView", "Month"))}
-        firstDay={getFirstDayOfWeek()}
-        headerToolbar={
-          false
-        }
-        locale={getConfigField("Locale", "en")} // e.g. "en" or "fr"
-        timeZone={getConfigField("TimeZone", "local")}
-        dayHeaderFormat={{
-          weekday: "short", // "Monday" or "Lundi" (full name) (or: 'long')
-          day: "2-digit", // "14"
-          month: "2-digit", // "Jan" or "janv." (ex: 'short')
-          separator: " / ", // Custom separator
-        }}
-        allDaySlot={false}
-        editable={true}
-        eventDurationEditable={true}
-        eventResizableFromStart={true}
-        eventDragMinDistance={1}
-        dragScroll={true}
-        selectable={true}
-        selectMirror={true}
-        dayMaxEvents={true}
-        events={debouncedFetch}
-        eventClick={(info) => notifyEventClick(info.event)}
-        eventDrop={(info) => notifyEventDrop(info)}
-        eventResize={(info) => notifyEventResize(info)}
-        select={(info) => notifyDateSelect(info, calendarRef)}
-        datesSet={(info) => notifyViewChange(info.view)}
-        // Optional but recommended enhancements:
-        height="100%"
-        slotMinTime={getConfigField("DayStartTime", "08:00:00")}
-        slotMaxTime={getConfigField("DayEndTime", "20:00:00")}
-        slotDuration="00:30:00" // Each slot = 15 minutes (default: "00:30:00")
-        slotLabelInterval="01:00:00" // Show time labels every 1 hour (default: "00:30:00")
-        slotLabelFormat={{
-          hour: "2-digit", // 08, 09, 20, etc.
-          minute: "2-digit", // 00, 30, etc.
-          hour12: false, // 24-hour format (no am/pm)
-        }}
-        snapDuration="00:30:00" // Snap selections to 15-minute increments // The time interval at which a dragged event will snap to the time axis.
-        // ... rest of your props
-        // You can add more later: eventContent, custom eventDidMount for tooltips, etc.
-        eventMinHeight={13} // Slightly higher than 18 → better readability
-        slotEventOverlap={false} // ← Disable visual overlap (clean stacking)
-      />
-    </div>
-  );
-  */
-
-  // NEW CODE WITH ErrorBoundary
+  // Use ErrorBoundary to catch and display errors properly
   const code = (
     <div className="app-container">
       {/* other UI like ConfigPanel */}
       <ErrorBoundary>
-        <div id="calendar" style={{ height: "98vh", width: "99vw" }}>
+        <div id="calendar" style={{ height: "99vh", width: "99vw" }}>
           {/* Add logs around the critical render */}
           {(() => {
             //console.log("About to render FullCalendar component");
@@ -347,9 +305,31 @@ function App() {
                 ]}
                 initialView={mapViewName(getConfigField("StartingView", "Month"))}
                 firstDay={getFirstDayOfWeek()}
-                headerToolbar={false}
                 locale={getConfigField("Locale", "en")} // e.g. "en" or "fr"
                 timeZone={getConfigField("TimeZone", "local")}
+                // Important: this class helps target your custom styles
+                themeSystem={"standard"}
+                //headerToolbar={false}
+                headerToolbar={{
+                  left: "prev,next today", // Previous, Next, Today buttons
+                  center: "title", // The current month/week title in the middle
+                  right: "timeGridDay,timeGridWeek,dayGridMonth,multiMonthYear,listWeek", // View switcher buttons
+                }}
+                buttonText={{
+                  today: "Today",
+                  day: "Dayly",
+                  week: "Weekly",
+                  month: "Monthly",
+                  year: "Yearlly",
+                  list: "Week List",
+                }}
+                // Title format for "2 – 8 Feb 2026" style (short month, no year if same)
+                titleFormat={{
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  meridiem: false,
+                }}
                 dayHeaderFormat={{
                   weekday: "short", // "Monday" or "Lundi" (full name) (or: 'long')
                   day: "2-digit", // "14"
@@ -369,7 +349,7 @@ function App() {
                 dayMaxEvents={true}
                 events={debouncedFetch}
                 eventClick={(info) => notifyEventClick(info.event)}
-                eventDrop={(info) => notifyEventDrop(info)}
+                eventDrop={(info) => notifyEventDrop(info, calendarRef)}
                 eventResize={(info) => notifyEventResize(info)}
                 select={(info) => notifyDateSelect(info, calendarRef)}
                 datesSet={(info) => notifyViewChange(info.view)}
@@ -384,7 +364,7 @@ function App() {
                   minute: "2-digit", // 00, 30, etc.
                   hour12: false, // 24-hour format (no am/pm)
                 }}
-                snapDuration="00:30:00" // Snap selections to 15-minute increments // The time interval at which a dragged event will snap to the time axis.
+                snapDuration="00:15:00" // Snap selections to 15-minute increments // The time interval at which a dragged event will snap to the time axis.
                 // ... rest of your props
                 // You can add more later: eventContent, custom eventDidMount for tooltips, etc.
                 eventMinHeight={13} // Slightly higher than 18 → better readability
@@ -406,6 +386,4 @@ function App() {
   return code;
 }
 
-//{/* Initial header (optional) */}
-/*<div style={{ color: "#888", fontWeight: "bold", marginBottom: "0.4rem" }}>Debug Logs</div>*/
 export default App;

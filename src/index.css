@@ -1,6 +1,7 @@
 /* ==============================================
    FullCalendar global styling + event theming
    Faithful to original loka.io look + user tweaks
+   + Modern pill-style headerToolbar buttons (from screenshot)
    ============================================== */
 
 /* Overall container - lighter background */
@@ -8,10 +9,131 @@
     background-color: #fcfcfc; /* Very light gray - much softer */
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 13px;
-    border: 1px solid #e0e0e0; /* Softer border */
-    border-radius: 2px;
+    /*border: 1px solid #e0e0e0;
+    border-radius: 2px;*/
     overflow: hidden;
 }
+
+/* ==============================================
+   HEADER TOOLBAR - Final refined pill-style (exact match to second screenshot)
+   ============================================== */
+
+/* Main toolbar container */
+.fc-header-toolbar {
+    /*margin-bottom: 1rem !important;*/
+    margin-bottom: 0.5rem !important;
+    /*padding: 0.5rem 0.8rem;*/
+    padding: 0.1rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: #ffffff;
+    border-bottom: none !important; /* remove line for cleaner look */
+}
+
+/* Title – lighter blue, centered, no extra margin */
+.fc-toolbar-title {
+    font-size: 1.3rem !important;
+    font-weight: 600 !important;
+    color: #0091ce !important; /* lighter blue from target screenshot */
+    margin: 0 !important;
+    text-align: center;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+/* Button groups – tighter gaps */
+/* chunk left, center, right */
+.fc-toolbar-chunk {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem; /* even tighter for compact look */
+}
+
+/* All buttons – uniform pills, softer borders */
+.fc .fc-button {
+    background-color: white !important;
+    border-color: #0091ce !important;
+    border: 1px solid #0091ce !important;
+    border-radius: 9999px !important;
+    color: #0091ce !important;
+    /*font-weight: 500 !important;*/
+    font-size: 0.9rem !important;
+    /*min-width: 80px;*/
+    min-height: 40px !important;
+    /*padding: 0.1rem 1rem !important;*/
+    margin-right: 3px !important;
+    margin-left: 3px !important;
+    box-shadow: none !important; /* remove shadow for flatter look */
+    transition: all 0.12s ease !important;
+    text-transform: capitalize;
+    cursor: pointer;
+}
+
+/* Hover – subtle brighten, no lift */
+.fc .fc-button:hover {
+    background-color: #0091ce !important;
+    color: white !important;
+}
+
+/* Active state – lighter blue from target */
+.fc .fc-button.fc-button-active,
+.fc .fc-button:focus,
+.fc .fc-button:active {
+    background-color: #0091ce !important;
+    color: white !important;
+    box-shadow: 0 0 0 2px rgba(0, 145, 206, 0.2) !important; /* subtle halo instead of shadow */
+}
+
+/* Today button – light blue background always (matches target) */
+.fc .fc-today-button {
+    min-width: 80px !important;
+}
+
+.fc .fc-today-button:hover {
+    /* background-color: #bfdbfe !important; */
+    background-color: #0091ce !important;
+    color: white !important;
+}
+
+/* Prev / Next – wider, blue background with white arrows */
+.fc .fc-prev-button,
+.fc .fc-next-button {
+    min-width: 80px !important;
+    font-weight: 500 !important;
+}
+
+.fc .fc-prev-button:hover,
+.fc .fc-next-button:hover {
+    background-color: #0091ce !important; /* darker blue on hover */
+    color: white !important; /* white arrows/content */
+}
+
+/* Icons (arrows) – ensure white */
+.fc .fc-icon {
+    font-size: 1.2rem;
+    vertical-align: middle;
+    color: inherit !important; /* white from button */
+}
+
+/* Disabled */
+.fc .fc-button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+.fc-timeGridDay-button,
+.fc-timeGridWeek-button,
+.fc-dayGridMonth-button,
+.fc-multiMonthYear-button,
+.fc-listWeek-button {
+    min-width: 80px !important;
+    font-size: 0.2rem !important;
+}
+
+/* ==============================================
+   Existing styles (unchanged below)
+   ============================================== */
 
 /* Column headers (dates) - no underline, smaller/lighter */
 .fc .fc-col-header-cell-cushion {
@@ -38,7 +160,7 @@
 /* Weekend background */
 .fc .fc-daygrid-day.fc-day-sat,
 .fc .fc-daygrid-day.fc-day-sun {
-    background-color: rgba(0, 0, 0, 0.015); /* Very subtle shading was 0.015 */
+    background-color: rgba(0, 0, 0, 0.015); /* Very subtle shading */
 }
 
 /* Grid lines - softer */
@@ -46,40 +168,31 @@
     border-bottom: 1px solid #f0f0f0;
 }
 
-/*
- * Thicker slot lines
- */
-
-/* Thick major hour lines at the START of each hour (top border of major slots) */
+/* Thicker major hour lines at the START of each hour */
 .fc .fc-timegrid-slot:not(.fc-timegrid-slot-minor) {
-    border-top: 1px solid var(--fc-border-color, #ddd) !important; /* adjust thickness/color as needed, e.g. 3px #333 */
-    border-bottom: 0 !important; /* remove or thin the bottom to avoid double lines */
+    border-top: 1px solid var(--fc-border-color, #ddd) !important;
+    border-bottom: 0 !important;
 }
 
-/* Keep minor slots subtle (half-hour etc.) with thin dotted top/bottom if desired */
+/* Minor slots subtle */
 .fc .fc-timegrid-slot.fc-timegrid-slot-minor {
     border-top: 1px dotted var(--fc-border-color, #ccc) !important;
-    border-bottom: 0 !important; /* minors usually have no bottom border by default */
+    border-bottom: 0 !important;
 }
 
-/* Optional: Ensure the very first slot (at slotMinTime, e.g. 07:00) has no top border or thin one, to avoid extra line at top */
+/* First slot top border */
 .fc .fc-timegrid-slot:first-child {
-    border-top: 1px solid var(--fc-border-color, #ddd) !important; /* or 0 if you want no top line at all */
+    border-top: 1px solid var(--fc-border-color, #ddd) !important;
 }
-
-/* If you still see faint double lines or misalignment, force consistent borders */
-.fc .fc-timegrid-slot {
-    border-bottom: none !important; /* prevent any residual bottom borders */
-}
-
-/* ************** */
 
 /* Event container */
 .fc-event {
     border-radius: 3px;
     border-width: 1px;
+    /*border-width: 0px;*/
     padding: 0px 2px;
     font-size: 12px;
+    /*font-size: 11px;*/
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -89,12 +202,13 @@
 
 /* Hover effect */
 .fc-event:hover {
-    opacity: 0.8;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transform: translateX(-1px);
+    /* All are set in the default added later */
+    /*opacity: 0.8;*/
+    /*box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);*/
+    /*transform: translateX(-1px);*/
 }
 
-/* Resize handles - more visible */
+/* Resize handles - white circles, visible on hover only */
 .fc-event-resizer {
     background: rgba(255, 255, 255, 0.8) !important;
     width: 10px !important;
@@ -110,20 +224,134 @@
     opacity: 1 !important;
 }
 
-/* In ListView, make hovering noticable */
-/* DOES NOT WORK
-.fc-list-event[role="button"]:hover .fc-list-event-title,
-.fc-list-event[role="button"]:hover .fc-list-event-time {
-    color: #ffffff !important;
-    background-color: rgba(0, 0, 0, 0.12) !important;
-} */
+/* Compact timegrid events - fit 3 × 20-min events per hour */
+.fc-timegrid-event {
+    border: 0px !important;
+    /*min-height: 14px !important;*/
+    padding: 0px 2px !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: all 0.15s ease;
+}
 
-/*
- * Event Colours
- */
+.fc-event-time {
+    font-weight: 600;
+    font-size: inherit;
+    margin-bottom: 0px;
+    display: block;
+}
 
-/* Event colors – all gradients at 90% opacity for consistent softening */
+.fc-event-title {
+    font-size: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
 
+/* Resize handles positioning */
+.fc-event-resizer-start,
+.fc-event-resizer-end {
+    background: rgba(255, 255, 255, 0.8) !important;
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 50% !important;
+    border: 1px solid #fff !important;
+    cursor: ns-resize !important;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+.fc-event-resizer-start {
+    top: -5px !important;
+    left: calc(50% - 5px) !important;
+}
+
+.fc-event-resizer-end {
+    bottom: -5px !important;
+    left: calc(50% - 5px) !important;
+}
+
+.fc-event:hover .fc-event-resizer-start,
+.fc-event:hover .fc-event-resizer-end {
+    opacity: 0.92 !important;
+    background: #ffffff !important;
+}
+
+/* iOS / FileMaker Go fixes */
+#calendar,
+#calendar .fc,
+#calendar .fc-event,
+#calendar .fc-daygrid-event,
+#calendar .fc-timegrid-event,
+#calendar .fc-list-event,
+#calendar .fc-col-header-cell,
+#calendar .fc .fc-event-resizer {
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
+    touch-action: manipulation !important;
+}
+
+#calendar {
+    touch-action: pan-y pinch-zoom !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+}
+
+#calendar img,
+#calendar a {
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}
+
+/* ==============================================
+   Force identical font weight, font size, and hover color
+   for events in Week (timeGrid) and Month (dayGrid) views
+   ============================================== */
+
+/* 1. Identical font weight and size for ALL events (week + month) */
+.fc-timegrid-event,
+.fc-daygrid-event,
+.fc-event-title,
+.fc-list-event,
+.fc-timegrid-event .fc-event-title,
+.fc-daygrid-event .fc-event-title,
+.fc-list-event .fc-list-event-title {
+    /* font-weight: 600 !important; */
+    font-size: 11px !important; /* identical size – matches your compact week view */
+    line-height: 1 !important; /* prevents clipping in both views */
+}
+
+/* 2. Identical hover color and effect for week and month events */
+.fc-timegrid-event:hover,
+.fc-daygrid-event:hover,
+.fc-list-event:hover,
+.fc-list-event .fc-event:hover,
+.fc-event:hover {
+    background-color: rgba(
+        0,
+        145,
+        206,
+        0.5
+    ) !important; /* light cyan hover – tuned to #0091ce theme */
+    color: white !important; /* darker cyan text on hover */
+    opacity: 0.92 !important; /* slight fade – optional */
+    box-shadow: 0 2px 8px rgba(0, 145, 206, 0.25) !important; /* subtle blue-tinted lift */
+    /*opacity: 0.8;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);*/
+    transform: translateX(-1px) !important;
+}
+
+/* -------------------------------------------- */
+/* Event Colors */
+/* -------------------------------------------- */
+
+/* Event Colours – all gradients at 90% opacity */
 .fc-event-blue {
     background: linear-gradient(
         to bottom,
@@ -242,100 +470,4 @@
     );
     border-color: #bdbdbd;
     color: #444444;
-}
-
-/* ==============================================
-// FINAL: Fit 3 × 20-min events per hour (30-min slots) – compact & elegant
-// ============================================== */
-
-/* Base for all timegrid events – aggressive compact for stacking */
-.fc-timegrid-event {
-    min-height: 14px !important; /* Short events shrink to fit 3 per hour */
-    padding: 0px 4px !important; /* Very tight padding */
-    font-size: 11px !important; /* Smaller font for density */
-    line-height: 1 !important; /* Tighter lines */
-    border-radius: 3px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-    transition: all 0.15s ease;
-}
-
-/* Time & title – keep readable but compact */
-.fc-event-time {
-    font-weight: 600;
-    font-size: inherit;
-    margin-bottom: 0px;
-    display: block;
-}
-
-.fc-event-title {
-    font-size: inherit;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
-}
-
-/* Resize handles – white circles, visible on hover only */
-.fc-event-resizer-start,
-.fc-event-resizer-end {
-    background: rgba(255, 255, 255, 0.8) !important;
-    width: 10px !important;
-    height: 10px !important;
-    border-radius: 50% !important;
-    border: 1px solid #fff !important;
-    cursor: ns-resize !important;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
-}
-
-.fc-event-resizer-start {
-    top: -5px !important;
-    left: calc(50% - 5px) !important;
-}
-
-.fc-event-resizer-end {
-    bottom: -5px !important;
-    left: calc(50% - 5px) !important;
-}
-
-.fc-event:hover .fc-event-resizer-start,
-.fc-event:hover .fc-event-resizer-end {
-    opacity: 1 !important;
-    background: #ffffff !important;
-}
-
-/* ==============================================
-   iOS / FileMaker Go fixes: Prevent magnifier, text selection,
-   and callout menu during long-press / drag / resize
-   ============================================== */
-
-#calendar,
-#calendar .fc,
-#calendar .fc-event,
-#calendar .fc-daygrid-event,
-#calendar .fc-timegrid-event,
-#calendar .fc-list-event,
-#calendar .fc-col-header-cell,
-#calendar .fc .fc-event-resizer {
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-    user-select: none !important;
-    touch-action: manipulation !important; /* Good balance: allows tap/drag, reduces gesture conflicts */
-}
-
-/* Slightly more permissive on the root container if you need vertical scrolling
-   in the WebViewer (e.g., tall calendar or portrait iPad) */
-#calendar {
-    touch-action: pan-y pinch-zoom !important;
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-}
-
-/* Prevent accidental image/link drags (if you add any icons later) */
-#calendar img,
-#calendar a {
-    -webkit-user-drag: none !important;
-    user-drag: none !important;
 }
